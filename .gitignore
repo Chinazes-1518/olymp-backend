@@ -22,6 +22,8 @@ venv
 docs.zip
 archive.zip
 .env
+
+# vim temporary files
 *~
 .*.sw?
 .cache
@@ -34,3 +36,4 @@ uv.lock
 
 .codspeed
 
+.codspeed
