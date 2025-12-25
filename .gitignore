@@ -1,3 +1,4 @@
+
 .idea
 .ipynb_checkpoints
 .mypy_cache
@@ -20,6 +21,7 @@ site_build
 venv
 docs.zip
 archive.zip
+.env
 
 # vim temporary files
 *~
@@ -31,5 +33,7 @@ archive.zip
 
 # Ignore while the setup still depends on requirements.txt files
 uv.lock
+
+.codspeed
 
 .codspeed
