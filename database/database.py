@@ -28,6 +28,7 @@ class Tasks(MainBase):
     condition: Mapped[str]
     solution: Mapped[str]
     answer: Mapped[str]
+    source: Mapped[str]
 
 
 class BattleHistory(MainBase):
@@ -47,4 +48,5 @@ class Analytics(MainBase):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     date: Mapped[datetime]
     data: Mapped[dict] = mapped_column(JSON)
+
 
