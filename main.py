@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 
 import database
 # import routes
-import utils
+# import utils
 # from routes import analytics
 
 
@@ -37,9 +37,9 @@ app.add_middleware(
 )
 
 
-@app.get("/")
-def read_root():
-    return utils.json_responce({'data': 'йоу сасло?'})
+# @app.get("/")
+# def read_root():
+#     return utils.json_responce({'data': 'йоу сасло?'})
 
 # @app.on_event("startup")
 # async def startup_event():
