@@ -24,7 +24,7 @@ class Tasks(MainBase):
     level: Mapped[int]
     points: Mapped[int]
     category: Mapped[str]
-    subcategory: Mapped[str]
+    subcategory: Mapped[list[str]] = Column(ARRAY(String))
     condition: Mapped[str]
     solution: Mapped[str]
     answer: Mapped[str]
