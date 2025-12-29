@@ -16,6 +16,8 @@ class Users(MainBase):
     token: Mapped[Optional[str]]
     role: Mapped[str]
     points: Mapped[int]
+    name: Mapped[str]
+    surname: Mapped[str]
 
 
 class Tasks(MainBase):

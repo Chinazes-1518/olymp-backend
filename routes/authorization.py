@@ -31,6 +31,7 @@ class RegisterRestrictions(BaseModel):
     login: constr(min_length=4, max_length=30)
     password: constr(min_length=8, max_length=20)
     name: constr(min_length=1, max_length=50)
+    surname: constr(min_length=1, max_length=50)
     role: constr(min_length=3, max_length=20)
 
 
@@ -46,6 +47,7 @@ async def register(data: RegisterRestrictions) -> JSONResponse:
         second_request = await session.execute(insert(database.Users).values(login=data.login.strip(),
                                                                              hash_password=hash_password(data.password.strip()),
                                                                              name=data.name,
+                                                                             surname=data.surname,
                                                                              role=data.role,
                                                                              token=token))
         await session.commit()
@@ -68,7 +70,7 @@ async def login(data: LoginRestrictions) -> JSONResponse:
               raise HTTPException(403, {'error': 'Неверный логин или пароль'})
           if hash_password(data.password.strip()) != user.password:
               raise HTTPException(403, {'error': 'Неверный логин или пароль'})
-          return utils.json_responce({'token': user.token, 'id': user.id, 'name':user.name})
+          return utils.json_responce({'token': user.token, 'id': user.id, 'name':user.name, 'surname': user.surname})
 
 
 
