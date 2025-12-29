@@ -29,6 +29,7 @@ class Tasks(MainBase):
     solution: Mapped[str]
     answer: Mapped[str]
     source: Mapped[str]
+    answer_type: Mapped[str]
 
 
 class BattleHistory(MainBase):
