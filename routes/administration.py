@@ -16,7 +16,7 @@ router = APIRouter(prefix='/admin')
 
 
 class Statistics(BaseModel):
-    token: constr(min_length=3, max_length=100)
+    token: str
     Userid: int
 
 
