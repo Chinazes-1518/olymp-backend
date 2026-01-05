@@ -45,10 +45,11 @@ async def register(data: RegisterRestrictions) -> JSONResponse:
             raise HTTPException(418, {'error': 'Пользователь с таким логином уже существует'})
         token = generate_token()
         second_request = await session.execute(insert(database.Users).values(login=data.login.strip(),
-                                                                             hash_password=hash_password(data.password.strip()),
+                                                                             password_hash=hash_password(data.password.strip()),
                                                                              name=data.name,
                                                                              surname=data.surname,
                                                                              role=data.role,
+                                                                             points=0,
                                                                              token=token))
         await session.commit()
         return utils.json_responce({'token': token,
