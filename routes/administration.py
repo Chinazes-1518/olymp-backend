@@ -20,7 +20,7 @@ class Statistics(BaseModel):
     Userid: constr(min_length=3, max_length=50)
 
 
-@router.post('/statistics')
+@router.get('/statistics')
 async def get_statistics(authorization: Statistics) -> JSONResponse:
     async with database.sessions.begin() as session:
           request = await session.execute(select(database.Users).where(database.Users.id == authorization.id))
