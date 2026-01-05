@@ -43,6 +43,8 @@ async def register(data: RegisterRestrictions) -> JSONResponse:
         user = request.scalar_one_or_none()
         if user is not None:
             raise HTTPException(418, {'error': 'Пользователь с таким логином уже существует'})
+        if data.role == 'administrator':
+            raise HTTPException(400, {'error': 'Роль администратора недоступна'})
         token = generate_token()
         second_request = await session.execute(insert(database.Users).values(login=data.login.strip(),
                                                                              password_hash=hash_password(data.password.strip()),
