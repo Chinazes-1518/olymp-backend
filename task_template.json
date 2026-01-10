@@ -1,0 +1,38 @@
+[
+  {"token": "saslochupep8",
+    "Userid": 2,
+    "level": 1,
+    "points": 5,
+    "category": "logic",
+    "subcategory": ["basic", "compare"],
+    "condition": "Что больше: 3 или 5?",
+    "solution": "5 больше 3",
+    "answer": "5",
+    "source": "problems.ru",
+    "answer_type": "number"
+  },
+  {"token": "saslochupep8",
+    "Userid": 2,
+    "level": 2,
+    "points": 10,
+    "category": "math",
+    "subcategory": ["algebra", "equations"],
+    "condition": "Решите уравнение: 2x + 5 = 11",
+    "solution": "2x = 6, x = 3",
+    "answer": "3",
+    "source": "problems.ru",
+    "answer_type": "number"
+  },
+  {"token": "saslochupep8",
+    "Userid": 2,
+    "level": 3,
+    "points": 15,
+    "category": "geometry",
+    "subcategory": ["triangles", "area"],
+    "condition": "Найдите площадь треугольника с основанием 6 и высотой 4",
+    "solution": "S = 1/2 * 6 * 4 = 12",
+    "answer": "12",
+    "source": "problems.ru",
+    "answer_type": "number"
+  }
+]

@@ -34,6 +34,7 @@ class Tasks(MainBase):
     answer_type: Mapped[str]
 
 
+
 class BattleHistory(MainBase):
     __tablename__ = 'battle_history'
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
