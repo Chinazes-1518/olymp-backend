@@ -71,7 +71,7 @@ async def login(data: LoginRestrictions) -> JSONResponse:
           user = request.scalar_one_or_none()
           if user is None:
               raise HTTPException(403, {'error': 'Неверный логин или пароль'})
-          if hash_password(data.password.strip()) != user.password:
+          if hash_password(data.password.strip()) != user.password_hash:
               raise HTTPException(403, {'error': 'Неверный логин или пароль'})
           return utils.json_response({'token': user.token, 'id': user.id, 'name':user.name, 'surname': user.surname})
 
