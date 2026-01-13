@@ -1,7 +1,7 @@
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 from utils import token_to_user
-from battle import battle_manager, Room
+from .battle import battle_manager, Room
 import database
 
 
@@ -34,10 +34,23 @@ async def websocket_endpoint(websocket: WebSocket):
                     if not verify_params(data, ['name']):
                         await websocket.send_json({'error': 'wrong params'})
                         continue
-                    # room_id = battle_manager.add_room()
-                    # await websocket.send_json({'room_id': r.id})
+                    room_id = battle_manager.add_room(user_id, data['name'])
+                    await websocket.send_json({'room_id': room_id})
+                    continue
+                elif data['cmd'] == 'connect_to_room':
+                    if not verify_params(data, ['room_id']):
+                        await websocket.send_json({'error': 'wrong params'})
+                        continue
+                    room = battle_manager.get_room(int(data['room_id']))
+                    if room is None:
+                        await websocket.send_json({'error': 'room not found'})
+                        continue
+                    else:
+                        room.other = user_id
+                        await websocket.send_json({'success': 'success'})
+                        continue
 
     except WebSocketDisconnect:
         print("Client disconnected")
     except Exception as e:
-        await websocket.close(code=1008)  # Handle other exceptions gracefully
+        await websocket.send_json({'error': str(e)})
