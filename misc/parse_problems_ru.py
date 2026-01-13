@@ -86,11 +86,11 @@ def parse_problem(p_id):
         return {}
 
 
-def parse_page(page_id):
+def parse_page(page_id, total):
     res = []
     cnt = 0
-
-    while 1:
+    running = True
+    while running:
         try:
             req = requests.get(
                 f'https://problems.ru/view_by_subject_new.php?parent={page_id}&start={cnt}')
@@ -108,22 +108,17 @@ def parse_page(page_id):
                     # print(el.string.strip())
                     s = el.string.strip()
                     if s.isnumeric():
-                        print(s)
                         cnt += 1
+                        print(s, cnt)
                         res.append(parse_problem(int(s)))
-                        time.sleep(random.randint(3, 10))
                         with open('tasks.json', 'w', encoding='utf8') as f:
                             json.dump(res, f, indent=4, ensure_ascii=False)
+                        time.sleep(random.randint(4, 10))
+                        if cnt == total:
+                            running = False
+                            break
         else:
             print(req.status_code)
 
-    # print(res)
-    return res
 
-parse_page(78)
-
-
-# print(parse_problem(88172))
-
-# with open('tasks.json', 'w') as f:
-#     json.dump(x, f, indent=4)
+parse_page(214, 3)
