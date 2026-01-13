@@ -32,13 +32,13 @@ async def get_statistics(data: UserInfo) -> JSONResponse:
         if user.role == 'administrator':
             request = await session.execute(select(database.BattleHistory))
             history = request.skalars().all()
-            return utils.json_responce({'history': history})
+            return utils.json_response({'history': history})
         else:
             request = await session.execute(select(database.BattleHistory)
                                             .where(
                 or_(database.BattleHistory.id1 == data.Userid, database.BattleHistory.id2 == data.Userid)))
             history = request.scalars().all()
-            return utils.json_responce({'history': history})
+            return utils.json_response({'history': history})
 
 
 class Task(BaseModel):
@@ -108,7 +108,7 @@ async def export_tasks(data: UserInfo) -> JSONResponse:
                            'source': item.source,
                            'answer_type': item.answer_type,
                            } for item in tasks]
-            return utils.json_responce({'tasks': tasks_data})
+            return utils.json_response({'tasks': tasks_data})
         else:
             raise HTTPException(403, {'error': ' Экспортировать задачи может только администратор!'})
 
