@@ -1,13 +1,16 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, WebSocket
+from pydantic import WebsocketUrl
 from utils import json_response, token_to_user
 import database
 
 
 class Room():
-    def __init__(self, host: int, other: int |
+    def __init__(self, host: int, host_ws: WebSocket, other: int |
                  None, id: int, name: str) -> None:
         self.host = host
+        self.host_ws = host_ws
         self.other = other
+        self.other_ws: WebSocket | None = None
         self.id = id
         self.name = name
 
@@ -25,14 +28,20 @@ class BattleManager():
         self.rooms: list[Room] = []
         self.id: int = 0
 
-    def add_room(self, host: int, name: str) -> int:
-        self.rooms.append(Room(host, None, self.id, name))
+    def add_room(self, host: int, host_ws: WebSocket, name: str) -> int:
+        self.rooms.append(Room(host, host_ws, None, self.id, name))
         self.id += 1
         return self.id - 1
 
     def get_room(self, room_id: int) -> Room | None:
         for r in self.rooms:
             if r.id == room_id:
+                return r
+        return None
+
+    def get_room_by_user(self, user_id: int) -> Room | None:
+        for r in self.rooms:
+            if r.host == user_id or r.other == user_id:
                 return r
         return None
 
@@ -54,7 +63,7 @@ async def get_rooms(token: str):
 
 
 @router.get('/room')
-async def get_rooms(token: str, id: int):
+async def get_room(token: str, id: int):
     async with database.sessions.begin() as session:
         if (await token_to_user(session, token)) is None:
             raise HTTPException(403, {"error": "Токен недействителен"})

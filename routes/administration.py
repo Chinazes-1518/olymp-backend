@@ -8,9 +8,7 @@ from pydantic import BaseModel, constr
 from sqlalchemy.util import greenlet_spawn
 
 import database
-import secrets
 import utils
-from database import BattleHistory
 
 router = APIRouter(prefix='/admin')
 
@@ -95,7 +93,7 @@ async def export_tasks(data: UserInfo) -> JSONResponse:
                            'level': item.level,
                            'points': item.points,
                            'category': item.category,
-                           'subcategory': ''.join(item.subcategory),
+                           'subcategory': ';'.join(item.subcategory),
                            'condition': item.condition,
                            'solution': item.solution,
                            'answer': item.answer,

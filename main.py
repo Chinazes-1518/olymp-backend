@@ -12,7 +12,16 @@ import routes
 import utils
 
 
-app = FastAPI()
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    print("Creating tables in database")
+    async with database.engine.begin() as connection:
+        await connection.run_sync(database.MainBase.metadata.create_all)
+    
+    yield
+
+
+app = FastAPI(lifespan=lifespan)
 app.include_router(routes.router)
 
 app.add_middleware(
