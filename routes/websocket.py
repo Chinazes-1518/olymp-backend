@@ -1,6 +1,6 @@
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
-from utils import token_to_id
+from utils import token_to_user
 
 
 router = APIRouter()
@@ -32,7 +32,7 @@ async def websocket_endpoint(websocket: WebSocket):
                 await websocket.send_json({'error': 'wrong params'})
                 continue
 
-            user_id = await token_to_id(data['token'])
+            user = await token_to_user(data['token'])
             if user_id is None:
                 await websocket.send_json({'error': 'failed to verify token'})
                 continue
@@ -47,7 +47,6 @@ async def websocket_endpoint(websocket: WebSocket):
                 r.name = data['name']
                 rooms.append(r)
                 await websocket.send_json({'room_id': r.id})
-            elif 
 
     except WebSocketDisconnect:
         print("Client disconnected")
