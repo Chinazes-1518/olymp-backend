@@ -37,5 +37,5 @@ uv.lock
 .codspeed
 
 .codspeed
-
+.venv
 misc/*.json

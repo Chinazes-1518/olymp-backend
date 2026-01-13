@@ -29,7 +29,7 @@ def generate_token() -> str:
 
 class RegisterRestrictions(BaseModel):
     login: constr(min_length=4, max_length=30)
-    password: constr(min_length=8, max_length=20)
+    password: constr(min_length=4, max_length=20)
     name: constr(min_length=1, max_length=50)
     surname: constr(min_length=1, max_length=50)
     role: constr(min_length=3, max_length=20)
