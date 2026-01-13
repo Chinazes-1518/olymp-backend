@@ -89,5 +89,7 @@ app.add_middleware(
 #         await websocket.close(code=1008, reason=str(e))
 # async def handle_websocket_message(user_id: int, message: dict):
 #     message_type = message.get("type")
- 
-uvicorn.run(app, port=8000)
+
+# uvicorn.run(app, port=8000, reload=True)
+if __name__ == "__main__":
+    uvicorn.run("__main__:app", host="0.0.0.0", port=8000, reload=True, workers=2)
