@@ -54,7 +54,7 @@ async def register(data: RegisterRestrictions) -> JSONResponse:
                                                                              points=0,
                                                                              token=token))
         await session.commit()
-        return utils.json_responce({'token': token,
+        return utils.json_response({'token': token,
                                     'id': second_request.inserted_primary_key[0]})
 
 
@@ -73,7 +73,7 @@ async def login(data: LoginRestrictions) -> JSONResponse:
               raise HTTPException(403, {'error': 'Неверный логин или пароль'})
           if hash_password(data.password.strip()) != user.password:
               raise HTTPException(403, {'error': 'Неверный логин или пароль'})
-          return utils.json_responce({'token': user.token, 'id': user.id, 'name':user.name, 'surname': user.surname})
+          return utils.json_response({'token': user.token, 'id': user.id, 'name':user.name, 'surname': user.surname})
 
 
 
