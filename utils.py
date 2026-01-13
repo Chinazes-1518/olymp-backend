@@ -8,7 +8,7 @@ from sqlalchemy import select
 
 import database
 
-def json_responce(data: dict) -> JSONResponse:
+def json_response(data: dict) -> JSONResponse:
     return JSONResponse(jsonable_encoder(data), headers={'Access-Control-Allow-Origin': '*'})
 
 
