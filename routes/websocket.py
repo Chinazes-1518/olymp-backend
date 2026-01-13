@@ -1,20 +1,11 @@
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 from utils import token_to_user
+from battle import battle_manager, Room
+import database
 
 
 router = APIRouter()
-
-
-class Room():
-    def __init__(self) -> None:
-        self.host: int | None = None
-        self.other: int | None = None
-        self.id: int | None = None
-        self.name: str | None = None
-
-
-rooms: list[Room] = []
 
 
 def verify_params(data: dict, params: list[str]) -> bool:
@@ -32,21 +23,19 @@ async def websocket_endpoint(websocket: WebSocket):
                 await websocket.send_json({'error': 'wrong params'})
                 continue
 
-            user = await token_to_user(data['token'])
-            if user_id is None:
-                await websocket.send_json({'error': 'failed to verify token'})
-                continue
-
-            if data['cmd'] == 'create_room':
-                if not verify_params(data, ['name']):
-                    await websocket.send_json({'error': 'wrong params'})
+            async with database.sessions.begin() as session:
+                user = await token_to_user(session, data['token'])
+                if user is None:
+                    await websocket.send_json({'error': 'failed to verify token'})
                     continue
-                r = Room()
-                r.host = user_id
-                r.id = len(rooms)
-                r.name = data['name']
-                rooms.append(r)
-                await websocket.send_json({'room_id': r.id})
+                user_id = user.id
+
+                if data['cmd'] == 'create_room':
+                    if not verify_params(data, ['name']):
+                        await websocket.send_json({'error': 'wrong params'})
+                        continue
+                    # room_id = battle_manager.add_room()
+                    # await websocket.send_json({'room_id': r.id})
 
     except WebSocketDisconnect:
         print("Client disconnected")
