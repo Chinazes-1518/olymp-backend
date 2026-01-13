@@ -58,12 +58,9 @@ class Task(BaseModel):
 @router.post('/import_task')
 async def import_task(data: Task) -> JSONResponse:
     async with database.sessions.begin() as session:
-        request = await session.execute(select(database.Users).where(database.Users.id == data.Userid))
-        user = request.scalar_one_or_none()
+        user = await utils.token_to_user(session, data[0].token)
         if user is None:
             raise HTTPException(403, {'error': 'Пользователь не существует'})
-        if data.token != user.token:
-            raise HTTPException(403, {'error': 'Неверный токен'})
         if user.role == 'administrator':
             await import_tasks_to_db([data])
         else:
