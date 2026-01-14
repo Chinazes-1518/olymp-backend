@@ -77,10 +77,10 @@ class Info(BaseModel):
 
 
 
-router.post('/verify')
-async def verify_token(data: Info) -> JSONResponse:
+@router.get('/verify')
+async def verify_token(token: str) -> JSONResponse:
     async with database.sessions.begin() as session:
-        user = await utils.token_to_user(session, data.token)
+        user = await utils.token_to_user(session, token)
         if user is None:
             raise HTTPException(403, {"error": "Токен не существует"})
         return utils.json_response({'token': user.token, 'id': user.id, 'name': user.name, 'surname': user.surname})
