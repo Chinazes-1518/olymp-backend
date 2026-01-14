@@ -16,10 +16,6 @@ def hash_password(password: str) -> str:
     return hashlib.sha512((password + 'asejqweifqe39sasloQ!@').encode("utf-8")).hexdigest()
 
 
-async def verify_token(session, token):
-    item = await session.execute(select(database.Users).where(database.Users.token == token.strip()))
-    if item.scalar_one_or_none() is None:
-        raise HTTPException(403, {"error": "Токен недействителен"})
 
 
 
@@ -74,6 +70,20 @@ async def login(data: LoginRestrictions) -> JSONResponse:
           if hash_password(data.password.strip()) != user.password_hash:
               raise HTTPException(403, {'error': 'Неверный логин или пароль'})
           return utils.json_response({'token': user.token, 'id': user.id, 'name':user.name, 'surname': user.surname})
+
+
+class Info(BaseModel):
+    token: str
+
+
+
+router.post('/verify')
+async def verify_token(data: Info) -> JSONResponse:
+    async with database.sessions.begin() as session:
+        user = await utils.token_to_user(session, data.token)
+        if user is None:
+            raise HTTPException(403, {"error": "Токен не существует"})
+        return utils.json_response({'token': user.token, 'id': user.id, 'name': user.name, 'surname': user.surname})
 
 
 
