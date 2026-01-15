@@ -14,19 +14,14 @@ import utils
 router = APIRouter(prefix='/admin')
 
 
-class UserInfo(BaseModel):
-    Userid: int
 
 
 @router.post('/statistics')
-async def get_statistics(data: UserInfo) -> JSONResponse:
+async def get_statistics(token: Annotated[str, Header(alias='Authorization')]) -> JSONResponse:
     async with database.sessions.begin() as session:
-        request = await session.execute(select(database.Users).where(database.Users.id == data.Userid))
-        user = request.scalar_one_or_none()
+        user = await utils.token_to_user(session, token)
         if user is None:
             raise HTTPException(403, {'error': 'Пользователь не существует'})
-        if data.token != user.token:
-            raise HTTPException(403, {'error': 'Неверный токен'})
         if user.role == 'administrator':
             request = await session.execute(select(database.BattleHistory))
             history = request.skalars().all()
@@ -34,7 +29,7 @@ async def get_statistics(data: UserInfo) -> JSONResponse:
         else:
             request = await session.execute(select(database.BattleHistory)
                                             .where(
-                or_(database.BattleHistory.id1 == data.Userid, database.BattleHistory.id2 == data.Userid)))
+                or_(database.BattleHistory.id1 == user.id, database.BattleHistory.id2 == user.id)))
             history = request.scalars().all()
             return utils.json_response({'history': history})
 
