@@ -1,7 +1,7 @@
 import hashlib
 from uuid import uuid4
 
-from fastapi import APIRouter, HTTPException, FastAPI, Query
+from fastapi import APIRouter, HTTPException, FastAPI, Query, Header
 from fastapi.responses import JSONResponse
 from sqlalchemy import select, insert, update
 from pydantic import BaseModel, constr
@@ -80,7 +80,7 @@ async def login(login: Annotated[str, Query()],
 
 
 @router.get('/verify')
-async def verify_token(token: Annotated[str, Query()]) -> JSONResponse:
+async def verify_token(token: Annotated[str, Header(alias="Authorization")]) -> JSONResponse:
     async with database.sessions.begin() as session:
         user = await utils.token_to_user(session, token)
         if user is None:
