@@ -1,7 +1,8 @@
-from fastapi import APIRouter, HTTPException, WebSocket
+from fastapi import APIRouter, HTTPException, WebSocket, Header
 from pydantic import WebsocketUrl
 from utils import json_response, token_to_user
 import database
+from typing import Annotated
 
 
 class Room():
@@ -55,7 +56,7 @@ battle_manager = BattleManager()
 
 
 @router.get('/rooms')
-async def get_rooms(token: str):
+async def get_rooms(token: Annotated[str, Header(alias="Authorization")]):
     async with database.sessions.begin() as session:
         if (await token_to_user(session, token)) is None:
             raise HTTPException(403, {"error": "Токен недействителен"})
@@ -63,7 +64,7 @@ async def get_rooms(token: str):
 
 
 @router.get('/room')
-async def get_room(token: str, id: int):
+async def get_room(token: Annotated[str, Header(alias="Authorization")], id: int):
     async with database.sessions.begin() as session:
         if (await token_to_user(session, token)) is None:
             raise HTTPException(403, {"error": "Токен недействителен"})
