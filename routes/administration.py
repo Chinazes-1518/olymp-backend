@@ -72,7 +72,7 @@ async def import_tasks(data: list[Task], token: Annotated[str, Header(alias="Aut
 
 
 @router.post('/export_tasks')
-async def export_tasks(data: UserInfo, token: Annotated[str, Header(alias="Authorization")]) -> JSONResponse:
+async def export_tasks(token: Annotated[str, Header(alias="Authorization")]) -> JSONResponse:
     async with database.sessions.begin() as session:
         user = await utils.token_to_user(session, token)
         if user is None:
