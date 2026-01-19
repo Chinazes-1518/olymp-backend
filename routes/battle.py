@@ -1,36 +1,71 @@
 from fastapi import APIRouter, HTTPException, WebSocket, Header
-from pydantic import WebsocketUrl
 from utils import json_response, token_to_user
 import database
 from typing import Annotated
+import asyncio
+import json
+import time
+from datetime import datetime
 
 
-class Room():
-    def __init__(self, host: int, host_ws: WebSocket, other: int |
-                 None, id: int, name: str) -> None:
+class GameState:
+    def __init__(self, task_ids: list, time_limit: int):
+        self.task_ids = task_ids
+        self.current_task = 0
+        self.time_limit = time_limit  
+        self.start_time = None
+        self.player1_answers = {}
+        self.player2_answers = {}
+        self.player1_times = {}
+        self.player2_times = {}
+        self.player1_points = 0
+        self.player2_points = 0
+        self.status = "waiting"  
+        
+    def to_dict(self):
+        return {
+            "task_ids": self.task_ids,
+            "current_task": self.current_task,
+            "time_limit": self.time_limit,
+            "player1_answers": self.player1_answers,
+            "player2_answers": self.player2_answers,
+            "player1_points": self.player1_points,
+            "player2_points": self.player2_points,
+            "status": self.status
+        }
+
+
+class Room:
+    def __init__(self, host: int, host_ws: WebSocket, other: int | None, id: int, name: str) -> None:
         self.host = host
         self.host_ws = host_ws
         self.other = other
         self.other_ws: WebSocket | None = None
         self.id = id
         self.name = name
-
+        self.game_state: GameState | None = None
+        self.task_data = []
+        self.task_timers = {} 
     def json(self) -> dict:
         return {
             'host': self.host,
             'other': self.other,
             'id': self.id,
             'name': self.name,
+            'game_state': self.game_state.to_dict() if self.game_state else None
         }
 
 
-class BattleManager():
+class BattleManager:
     def __init__(self) -> None:
         self.rooms: list[Room] = []
         self.id: int = 0
+        self.user_to_room: dict[int, Room] = {} 
 
     def add_room(self, host: int, host_ws: WebSocket, name: str) -> int:
-        self.rooms.append(Room(host, host_ws, None, self.id, name))
+        room = Room(host, host_ws, None, self.id, name)
+        self.rooms.append(room)
+        self.user_to_room[host] = room
         self.id += 1
         return self.id - 1
 
@@ -41,17 +76,25 @@ class BattleManager():
         return None
 
     def get_room_by_user(self, user_id: int) -> Room | None:
-        for r in self.rooms:
-            if r.host == user_id or r.other == user_id:
-                return r
-        return None
+        return self.user_to_room.get(user_id)
 
     def get_rooms(self) -> list[Room]:
         return self.rooms
 
+    def remove_room(self, room: Room):
+        if room in self.rooms:
+            self.rooms.remove(room)
+            if room.host in self.user_to_room:
+                del self.user_to_room[room.host]
+            if room.other and room.other in self.user_to_room:
+                del self.user_to_room[room.other]
+
+    def user_join_room(self, user_id: int, room: Room):
+        room.other = user_id
+        self.user_to_room[user_id] = room
+
 
 router = APIRouter(prefix='/battle')
-
 battle_manager = BattleManager()
 
 
