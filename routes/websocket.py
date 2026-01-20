@@ -20,49 +20,22 @@ def verify_params(data: dict, params: list[str]) -> bool:
 
 async def start_game_timer(room: Room):
     try:
-        if not room.game_state:
+        if room.status != 'waiting':
             return
 
-        game_state = room.game_state
-        game_state.start_game()
+        room.status = 'started'
+        room.start_time = time.time()
 
         await room.broadcast({
-            'event': 'игра началась',
-            'задача': game_state.get_current_task_data(),
-            'всего_задач': len(game_state.task_ids),
-            'лимит_времени': game_state.time_limit
+            'event': 'game_started',
+            'start_time': room.start_time
         })
 
-        task_duration = game_state.time_limit * 60
-        start_time = time.time()
+        await asyncio.sleep(room.time_limit)
 
-        while time.time() - start_time < task_duration:
-            if game_state.status != "started":
-                break
-
-            elapsed = int(time.time() - start_time)
-            remaining = max(0, task_duration - elapsed)
-
-            await room.broadcast({
-                'event': 'обновление времени',
-                'прошло_секунд': elapsed,
-                'осталось_секунд': remaining,
-                'номер_задачи': game_state.current_task
-            })
-
-            if game_state.check_both_answered():
-                await handle_task_completion(room)
-
-            await asyncio.sleep(1)
-
-        if game_state.status == "started":
-            await room.broadcast({
-                'event': 'время вышло',
-                'номер_задачи': game_state.current_task
-            })
-            await asyncio.sleep(2)
-            await handle_task_completion(room)
-
+        await room.broadcast({
+            'event': 'game_timeout',
+        })
     except Exception as e:
         print(f"Ошибка таймера игры: {e}")
 
@@ -339,6 +312,7 @@ async def websocket_endpoint(websocket: WebSocket):
                         'subcat',
                         'count',
                         'time_limit']
+
                     if not verify_params(data, required_params):
                         await websocket.send_json({
                             'event': 'error',
@@ -368,6 +342,13 @@ async def websocket_endpoint(websocket: WebSocket):
                         })
                         continue
 
+                    if room.status != 'waiting':
+                        await websocket.send_json({
+                            'event': 'error',
+                            'message': 'Room has already been started'
+                        })
+                        continue
+
                     tasks = list((await session.execute(select(Tasks).where(
                         and_(
                             Tasks.level >= int(data['diff_start']),
@@ -388,38 +369,42 @@ async def websocket_endpoint(websocket: WebSocket):
                         continue
 
                     room.task_data = tasks
-                    room.game_state = GameState(
-                        [t.id for t in tasks],
-                        int(data['time_limit']),
-                        tasks
-                    )
+                    room.time_limit = int(data['time_limit'])
 
                     await room.broadcast({
                         'event': 'tasks_selected',
-                        'tasks': t
+                        'tasks': [
+                            {
+                                'id': x.id,
+                                'level': x.level,
+                                'points': x.points,
+                                'subcategory': x.subcategory,
+                                'condition': x.condition,
+                                'source': x.source,
+                                'answer_type': x.answer_type,
+                            }
+                            for x in tasks
+                        ]
                     })
 
                     await room.broadcast({
-                        'event': 'отсчет времени',
-                        'секунд': 5,
-                        'сообщение': 'Игра начнется через'
+                        'event': 'countdown_started',
+                        'left_seconds': 5,
                     })
 
                     for i in range(5, 0, -1):
                         await room.broadcast({
-                            'event': 'отсчет времени',
-                            'секунд': i,
-                            'сообщение': f'Начало через {i}...'
+                            'event': 'countdown',
+                            'left_seconds': i,
                         })
                         await asyncio.sleep(1)
 
                     asyncio.create_task(start_game_timer(room))
-
-                elif cmd == 'отправить ответ':
+                elif cmd == 'send_answer':
                     if not verify_params(data, ['answer']):
                         await websocket.send_json({
-                            'event': 'ошибка',
-                            'сообщение': 'Отсутствует ответ'
+                            'event': 'error',
+                            'message': 'No answer specified'
                         })
                         continue
 

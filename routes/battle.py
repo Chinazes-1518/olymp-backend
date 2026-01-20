@@ -9,31 +9,12 @@ import time
 from datetime import datetime
 
 
-class GameState:
-    def __init__(self, task_ids: list, time_limit: int):
-        self.task_ids = task_ids
-        self.current_task = 0
-        self.time_limit = time_limit
-        self.start_time = None
-        self.player1_answers = {}
-        self.player2_answers = {}
-        self.player1_times = {}
-        self.player2_times = {}
-        self.player1_points = 0
-        self.player2_points = 0
-        self.status = "waiting"
+# class GameState:
+#     def __init__(self, task_ids: list, time_limit: int):
 
-    def to_dict(self):
-        return {
-            "task_ids": self.task_ids,
-            "current_task": self.current_task,
-            "time_limit": self.time_limit,
-            "player1_answers": self.player1_answers,
-            "player2_answers": self.player2_answers,
-            "player1_points": self.player1_points,
-            "player2_points": self.player2_points,
-            "status": self.status
-        }
+#     def to_dict(self):
+#         return {
+#         }
 
 
 class Room:
@@ -45,9 +26,17 @@ class Room:
         self.other_ws: WebSocket | None = None
         self.id = id
         self.name = name
-        self.game_state: GameState | None = None
+        # self.game_state: GameState | None = None
         self.task_data: list[Tasks] = []
-        self.task_timers = {}
+        self.time_limit: int | None = None
+        self.start_time: float | None = None
+        self.player1_answers = {}
+        self.player2_answers = {}
+        self.player1_times = {}
+        self.player2_times = {}
+        self.player1_points = 0
+        self.player2_points = 0
+        self.status = "waiting"
 
     def json(self) -> dict:
         return {
@@ -55,7 +44,13 @@ class Room:
             'other': self.other,
             'id': self.id,
             'name': self.name,
-            'game_state': self.game_state.to_dict() if self.game_state else None
+            # 'game_state': self.game_state.to_dict() if self.game_state else None,
+            # "time_limit": self.time_limit,
+            # "player1_answers": self.player1_answers,
+            # "player2_answers": self.player2_answers,
+            # "player1_points": self.player1_points,
+            # "player2_points": self.player2_points,
+            # "status": self.status
         }
     
     async def broadcast(self, data: dict):
