@@ -1,4 +1,5 @@
 from fastapi import APIRouter, HTTPException, WebSocket, Header
+from database.database import Tasks
 from utils import json_response, token_to_user
 import database
 from typing import Annotated
@@ -12,7 +13,7 @@ class GameState:
     def __init__(self, task_ids: list, time_limit: int):
         self.task_ids = task_ids
         self.current_task = 0
-        self.time_limit = time_limit  
+        self.time_limit = time_limit
         self.start_time = None
         self.player1_answers = {}
         self.player2_answers = {}
@@ -20,8 +21,8 @@ class GameState:
         self.player2_times = {}
         self.player1_points = 0
         self.player2_points = 0
-        self.status = "waiting"  
-        
+        self.status = "waiting"
+
     def to_dict(self):
         return {
             "task_ids": self.task_ids,
@@ -36,7 +37,8 @@ class GameState:
 
 
 class Room:
-    def __init__(self, host: int, host_ws: WebSocket, other: int | None, id: int, name: str) -> None:
+    def __init__(self, host: int, host_ws: WebSocket,
+                 other: int | None, id: int, name: str) -> None:
         self.host = host
         self.host_ws = host_ws
         self.other = other
@@ -44,8 +46,9 @@ class Room:
         self.id = id
         self.name = name
         self.game_state: GameState | None = None
-        self.task_data = []
-        self.task_timers = {} 
+        self.task_data: list[Tasks] = []
+        self.task_timers = {}
+
     def json(self) -> dict:
         return {
             'host': self.host,
@@ -54,13 +57,19 @@ class Room:
             'name': self.name,
             'game_state': self.game_state.to_dict() if self.game_state else None
         }
+    
+    async def broadcast(self, data: dict):
+        if self.host_ws:
+            await self.host_ws.send_json(data)
+        if self.other_ws:
+            await self.other_ws.send_json(data)
 
 
 class BattleManager:
     def __init__(self) -> None:
         self.rooms: list[Room] = []
         self.id: int = 0
-        self.user_to_room: dict[int, Room] = {} 
+        self.user_to_room: dict[int, Room] = {}
 
     def add_room(self, host: int, host_ws: WebSocket, name: str) -> int:
         room = Room(host, host_ws, None, self.id, name)
@@ -89,8 +98,9 @@ class BattleManager:
             if room.other and room.other in self.user_to_room:
                 del self.user_to_room[room.other]
 
-    def user_join_room(self, user_id: int, room: Room):
+    def user_join_room(self, user_id: int, room: Room, websocket: WebSocket):
         room.other = user_id
+        room.other_ws = websocket
         self.user_to_room[user_id] = room
 
 
@@ -107,7 +117,8 @@ async def get_rooms(token: Annotated[str, Header(alias="Authorization")]):
 
 
 @router.get('/room')
-async def get_room(token: Annotated[str, Header(alias="Authorization")], id: int):
+async def get_room(
+        token: Annotated[str, Header(alias="Authorization")], id: int):
     async with database.sessions.begin() as session:
         if (await token_to_user(session, token)) is None:
             raise HTTPException(403, {"error": "Токен недействителен"})
