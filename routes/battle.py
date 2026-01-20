@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from fastapi import APIRouter, HTTPException, WebSocket, Header
 from database.database import Tasks
 from utils import json_response, token_to_user, user_by_id

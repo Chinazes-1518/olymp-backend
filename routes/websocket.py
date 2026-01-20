@@ -5,9 +5,8 @@ import asyncio
 import json
 import time
 
-from database.database import Users
-from utils import token_to_user, calculate_points, save_battle_history, get_user_by_id
-from .battle import battle_manager, Room, GameState
+from utils import token_to_user
+from .battle import battle_manager, Room
 import database
 from database import Tasks
 
