@@ -5,7 +5,7 @@ import asyncio
 import json
 import time
 
-from utils import token_to_user, calculate_points, save_battle_history, get_user_by_id
+from utils import token_to_user
 from .battle import battle_manager, Room, GameState
 import database
 from database import Tasks
@@ -226,15 +226,10 @@ async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
     user_id = None
     current_room = None
-<<<<<<< HEAD
-    try:
-        while True:
-=======
     connected_websockets.append(websocket)
 
     while True:
         try:
->>>>>>> 7c9a1737b747fccfb8b0c611b59636bba0cf9357
             data = await websocket.receive_json()
 
             if 'event' not in data or 'token' not in data:

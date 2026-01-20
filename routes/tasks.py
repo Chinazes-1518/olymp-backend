@@ -29,16 +29,17 @@ async def send_to_frontend(condition: Annotated[str, Query()],
                 cast(
                     database.Tasks.subcategory,
                     ARRAY(String)).op('&&')(
-                    subcategory).func.random()).limit(count))).scalars().all())
+                    subcategory))).limit(count))).scalars().all()
         tasks_data = [{'id': item.id,
                        'level': item.level,
                        'category': item.category,
-                       'subcategory': ';'.join(item.subcategory),
+                       'subcategory': item.subcategory,
                        'condition': item.condition,
                        'source': item.source,
                        'answer_type': item.answer_type
                        } for item in tasks]
         return utils.json_response({'tasks': tasks_data})
+
 
 
 
