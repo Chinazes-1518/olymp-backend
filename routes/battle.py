@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, WebSocket, Header
 from database.database import Tasks
-from utils import json_response, token_to_user
+from utils import json_response, token_to_user, user_by_id
 import database
 from typing import Annotated
 import asyncio
@@ -52,7 +52,7 @@ class Room:
             # "player2_points": self.player2_points,
             # "status": self.status
         }
-    
+
     async def broadcast(self, data: dict):
         if self.host_ws:
             await self.host_ws.send_json(data)
@@ -108,7 +108,16 @@ async def get_rooms(token: Annotated[str, Header(alias="Authorization")]):
     async with database.sessions.begin() as session:
         if (await token_to_user(session, token)) is None:
             raise HTTPException(403, {"error": "Токен недействителен"})
-        return json_response([x.json() for x in battle_manager.get_rooms()])
+        res = []
+        for x in battle_manager.get_rooms():
+            a = x.json()
+            host_user = await user_by_id(session, x.host)
+            a['host_name'] = f'{host_user.name} {host_user.surname[0]}.'
+            if x.other:
+                other_user = await user_by_id(session, x.other)
+                a['other_name'] = f'{other_user.name} {other_user.surname[0]}.'
+            res.append(a)
+        return json_response(res)
 
 
 @router.get('/room')

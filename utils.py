@@ -6,6 +6,7 @@ from fastapi import HTTPException
 from sqlalchemy import select
 
 import database
+from database.database import Users
 
 
 def json_response(data: dict) -> JSONResponse:
@@ -19,3 +20,6 @@ async def token_to_user(session, token: str) -> None:
         return None
     else:
         return item
+
+async def user_by_id(session, id: int) -> Users | None:
+    return (await session.execute(select(Users).where(Users.id == id))).scalar_one_or_none()

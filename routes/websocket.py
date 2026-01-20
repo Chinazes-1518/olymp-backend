@@ -5,6 +5,7 @@ import asyncio
 import json
 import time
 
+from database.database import Users
 from utils import token_to_user, calculate_points, save_battle_history, get_user_by_id
 from .battle import battle_manager, Room, GameState
 import database
@@ -246,11 +247,13 @@ async def websocket_endpoint(websocket: WebSocket):
                         'event': 'your_room_created',
                         'room_id': room_id,
                     })
+
                     await broadcast({
                         'event': 'room_created',
                         'host': user_id,
                         'id': room_id,
-                        'name': data['name']
+                        'name': data['name'],
+                        'host_name': f'{user.name} {user.surname[0]}.'
                     })
                 elif cmd == 'join_room':
                     if not verify_params(data, ['room_id']):
@@ -375,7 +378,6 @@ async def websocket_endpoint(websocket: WebSocket):
                             {
                                 'id': x.id,
                                 'level': x.level,
-                                'points': x.points,
                                 'subcategory': x.subcategory,
                                 'condition': x.condition,
                                 'source': x.source,
