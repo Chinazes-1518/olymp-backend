@@ -9,7 +9,10 @@ import utils
 from .websocket import websocket_endpoint
 from sqlalchemy.dialects.postgresql import ARRAY
 
+
 router = APIRouter(prefix='/tasks')
+
+
 @router.get('/get')
 async def send_to_frontend(condition: Annotated[str, Query()],
                    level_start: Annotated[int, Query()],
