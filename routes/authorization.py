@@ -3,7 +3,7 @@ from uuid import uuid4
 
 from fastapi import APIRouter, HTTPException, FastAPI, Query, Header
 from fastapi.responses import JSONResponse
-from sqlalchemy import select, insert, update
+from sqlalchemy import select, insert, update, String, cast, func
 from pydantic import BaseModel, constr
 from sqlalchemy.util import greenlet_spawn
 from typing import Annotated

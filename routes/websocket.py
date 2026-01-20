@@ -199,10 +199,15 @@ async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
     user_id = None
     current_room = None
+<<<<<<< HEAD
+    try:
+        while True:
+=======
     connected_websockets.append(websocket)
 
     while True:
         try:
+>>>>>>> 7c9a1737b747fccfb8b0c611b59636bba0cf9357
             data = await websocket.receive_json()
 
             if 'event' not in data or 'token' not in data:
