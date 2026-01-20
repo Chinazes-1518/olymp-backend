@@ -6,6 +6,7 @@ from fastapi import HTTPException
 from sqlalchemy import select, insert, update
 from datetime import datetime
 import json
+import math
 
 import database
 from database.database import Users
@@ -24,36 +25,113 @@ async def token_to_user(session, token: str) -> None:
         return item
 
 
-async def calculate_points(user_id: int, session, correct_answers: int, total_tasks: int, time_spent: list[int]) -> int:
-    base_points = correct_answers * 10
-    time_bonus = sum(max(0, 30 - t) for t in time_spent if t <= 30)
-    accuracy_bonus = int((correct_answers / max(total_tasks, 1)) * 20)
+async def calculate_elo_rating(player1_rating: int, player2_rating: int, player1_score: float, k_factor: int = 32) -> tuple[int, int, int, int]:
+    def expected_score(rating_a: int, rating_b: int) -> float:
+        return 1 / (1 + 10 ** ((rating_b - rating_a) / 400))
     
-    total_points = base_points + time_bonus + accuracy_bonus
+    expected_player1 = expected_score(player1_rating, player2_rating)
+    expected_player2 = 1 - expected_player1
     
-    user = await session.execute(select(database.Users).where(database.Users.id == user_id))
-    user = user.scalar_one_or_none()
-    if user:
+    player2_score = 1 - player1_score if player1_score != 0.5 else 0.5
+    
+    player1_change = k_factor * (player1_score - expected_player1)
+    player2_change = k_factor * (player2_score - expected_player2)
+    
+    player1_new_rating = player1_rating + player1_change
+    player2_new_rating = player2_rating + player2_change
+    
+    return (int(round(player1_new_rating)), 
+            int(round(player2_new_rating)), 
+            int(round(player1_change)), 
+            int(round(player2_change)))
+
+
+async def calculate_battle_points_and_elo(player1_id: int, player2_id: int, session,
+                                         player1_correct: int, player2_correct: int, 
+                                         total_tasks: int, is_technical: bool = False) -> dict:
+    
+    player1 = await get_user_by_id(session, player1_id)
+    player2 = await get_user_by_id(session, player2_id) if player2_id else None
+    
+    player1_rating = player1.points if player1 and hasattr(player1, 'points') else 1000
+    player2_rating = player2.points if player2 and hasattr(player2, 'points') else 1000
+    
+    result = {
+        'player1_id': player1_id,
+        'player2_id': player2_id,
+        'player1_correct': player1_correct,
+        'player2_correct': player2_correct,
+        'total_tasks': total_tasks,
+        'is_technical': is_technical
+    }
+    
+    if is_technical:
+        result.update({
+            'player1_new_rating': player1_rating,
+            'player2_new_rating': player2_rating,
+            'player1_rating_change': 0,
+            'player2_rating_change': 0,
+            'match_status': 'cancelled',
+            'winner': None
+        })
+        return result
+    
+    if player1_correct > player2_correct:
+        player1_score = 1.0
+        winner = 'player1'
+    elif player2_correct > player1_correct:
+        player1_score = 0.0
+        winner = 'player2'
+    else:
+        player1_score = 0.5
+        winner = 'draw'
+    
+    player1_new, player2_new, player1_change, player2_change = await calculate_elo_rating(
+        player1_rating, player2_rating, player1_score
+    )
+    
+    if player1:
         await session.execute(
             update(database.Users)
-            .where(database.Users.id == user_id)
-            .values(points=database.Users.points + total_points)
+            .where(database.Users.id == player1_id)
+            .values(points=player1_new)
         )
-        await session.commit()
     
-    return total_points
+    if player2:
+        await session.execute(
+            update(database.Users)
+            .where(database.Users.id == player2_id)
+            .values(points=player2_new)
+        )
+    
+    await session.commit()
+    
+    result.update({
+        'player1_old_rating': player1_rating,
+        'player2_old_rating': player2_rating,
+        'player1_new_rating': player1_new,
+        'player2_new_rating': player2_new,
+        'player1_rating_change': player1_change,
+        'player2_rating_change': player2_change,
+        'match_status': 'completed',
+        'winner': winner
+    })
+    
+    return result
 
 
-async def save_battle_history(session, room, player1_points, player2_points):
+async def save_battle_history(session, room, battle_results: dict):
     await session.execute(
         insert(database.BattleHistory).values(
             id1=room.host,
             id2=room.other if room.other else room.host,
-            result1=player1_points,
-            result2=player2_points if room.other else 0,
+            result1=room.game_state.player1_correct if hasattr(room.game_state, 'player1_correct') else 0,
+            result2=room.game_state.player2_correct if hasattr(room.game_state, 'player2_correct') else 0,
             solvingtime1=room.game_state.player1_times if hasattr(room.game_state, 'player1_times') else [],
             solvingtime2=room.game_state.player2_times if hasattr(room.game_state, 'player2_times') and room.other else [],
-            date=datetime.now()
+            date=datetime.now(),
+            status=battle_results['match_status'],
+            winner=battle_results['winner']
         )
     )
     await session.commit()
@@ -116,30 +194,41 @@ async def get_available_tasks(session, filters: dict):
     return result.scalars().all()
 
 
-async def end_game_early(session, room, reason: str = "Game ended early"):
+
+async def end_game_early(session, room, reason: str = "Game ended early", is_technical: bool = True):
     from .battle import battle_manager
     
     if room.game_state:
         room.game_state.status = "finished"
         
+        player1_correct, player2_correct = room.game_state.calculate_final_points()
+        battle_results = await calculate_battle_points_and_elo(
+            room.host, room.other, session,
+            player1_correct, player2_correct,
+            len(room.game_state.task_ids),
+            is_technical=is_technical
+        )
+        
+        await save_battle_history(session, room, battle_results)
+        
         await room.broadcast({
             'event': 'game_finished',
             'message': reason,
-            'early': True
+            'early': True,
+            'is_technical': is_technical,
+            'results': battle_results
         })
     
     battle_manager.remove_room(room)
 
 
-async def handle_player_disconnect(session, user_id: int, reason: str = "Player disconnected"):
+async def handle_player_disconnect(session, user_id: int):
     from .battle import battle_manager
     room = battle_manager.get_room_by_user(user_id)
     
     if room:
-        other_user_id = room.other if user_id == room.host else room.host
-        
-        if other_user_id and room.game_state and room.game_state.status == "started":
-            await end_game_early(session, room, f"{reason}. Game terminated.")
+        if room.game_state and room.game_state.status == "started":
+            await end_game_early(session, room, "Player disconnected", is_technical=True)
         else:
             await handle_player_leave(room, user_id)
     
@@ -174,58 +263,65 @@ async def handle_player_leave(room, user_id: int):
         print(f"Error handling player leave: {e}")
 
 
-def format_task_for_display(task):
-    return {
-        'id': task.id,
-        'condition_preview': task.condition[:200] + "..." if len(task.condition) > 200 else task.condition,
-        'level': task.level,
-        'category': task.category,
-        'subcategories': task.subcategory,
-        'answer_type': task.answer_type
-    }
-
-
-def format_results_for_display(player1_data, player2_data, player1_correct, player2_correct, total_tasks, player1_points, player2_points):
-    return {
+async def finish_game_normal(room, session):
+    game_state = room.game_state
+    game_state.status = "finished"
+    
+    player1_correct, player2_correct = game_state.calculate_final_points()
+    
+    battle_results = await calculate_battle_points_and_elo(
+        room.host, room.other, session,
+        player1_correct, player2_correct,
+        len(game_state.task_ids),
+        is_technical=False
+    )
+    
+    await save_battle_history(session, room, battle_results)
+    
+    player1_data = await get_user_by_id(session, room.host)
+    player2_data = await get_user_by_id(session, room.other) if room.other else None
+    
+    winner_text = ""
+    if battle_results['winner'] == 'player1':
+        winner_text = f"{player1_data.name if player1_data else 'Player 1'} wins!"
+    elif battle_results['winner'] == 'player2':
+        winner_text = f"{player2_data.name if player2_data else 'Player 2'} wins!"
+    else:
+        winner_text = "It's a draw!"
+    
+    results_for_display = {
         'player1': {
             'name': player1_data.name if player1_data else 'Player 1',
             'surname': player1_data.surname if player1_data else '',
             'correct_answers': player1_correct,
-            'total_tasks': total_tasks,
-            'percentage': int((player1_correct / total_tasks) * 100) if total_tasks > 0 else 0,
-            'points': player1_points
+            'total_tasks': len(game_state.task_ids),
+            'old_rating': battle_results['player1_old_rating'],
+            'new_rating': battle_results['player1_new_rating'],
+            'rating_change': battle_results['player1_rating_change']
         },
         'player2': {
             'name': player2_data.name if player2_data else 'Player 2',
             'surname': player2_data.surname if player2_data else '',
             'correct_answers': player2_correct,
-            'total_tasks': total_tasks,
-            'percentage': int((player2_correct / total_tasks) * 100) if total_tasks > 0 else 0,
-            'points': player2_points
-        }
+            'total_tasks': len(game_state.task_ids),
+            'old_rating': battle_results['player2_old_rating'],
+            'new_rating': battle_results['player2_new_rating'],
+            'rating_change': battle_results['player2_rating_change']
+        },
+        'winner': battle_results['winner'],
+        'winner_text': winner_text,
+        'match_status': battle_results['match_status']
     }
-
-
-async def cleanup_empty_rooms():
+    
+    await room.broadcast({
+        'event': 'game_finished',
+        'message': 'Game completed!',
+        'results': results_for_display
+    })
+    
+    await asyncio.sleep(10)
     from .battle import battle_manager
-    import time
-    
-    current_time = time.time()
-    rooms_to_remove = []
-    
-    for room in battle_manager.rooms:
-        if not room.host_ws or (hasattr(room.host_ws, 'client_state') and room.host_ws.client_state.name == 'DISCONNECTED'):
-            rooms_to_remove.append(room)
-        elif room.other and (not room.other_ws or (hasattr(room.other_ws, 'client_state') and room.other_ws.client_state.name == 'DISCONNECTED')):
-            rooms_to_remove.append(room)
-        elif room.game_state and room.game_state.status == "finished":
-            if current_time - getattr(room.game_state, 'finish_time', current_time) > 30:
-                rooms_to_remove.append(room)
-    
-    for room in rooms_to_remove:
-        battle_manager.remove_room(room)
-    
-    return len(rooms_to_remove)
+    battle_manager.remove_room(room)
 
 
 def create_error_response(message: str, code: int = 400):
@@ -274,7 +370,5 @@ def format_game_state_data(game_state):
         'total_tasks': len(game_state.task_ids),
         'time_limit': game_state.time_limit,
         'player1_answers': game_state.player1_answers,
-        'player2_answers': game_state.player2_answers,
-        'player1_points': game_state.player1_points,
-        'player2_points': game_state.player2_points
+        'player2_answers': game_state.player2_answers
     }
