@@ -24,7 +24,6 @@ class Tasks(MainBase):
     __tablename__ = 'tasks'
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     level: Mapped[int]
-    points: Mapped[int]
     category: Mapped[str]
     subcategory: Mapped[list[str]] = Column(ARRAY(String))
     condition: Mapped[str]

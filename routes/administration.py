@@ -82,7 +82,6 @@ async def export_tasks(token: Annotated[str, Header(alias="Authorization")]) -> 
             tasks = request.scalars().all()
             tasks_data = [{"id": item.id,
                            'level': item.level,
-                           'points': item.points,
                            'category': item.category,
                            'subcategory': ';'.join(item.subcategory),
                            'condition': item.condition,

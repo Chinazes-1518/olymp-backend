@@ -216,7 +216,6 @@ async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
     user_id = None
     current_room = None
-    
     try:
         while True:
             data = await websocket.receive_json()
