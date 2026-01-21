@@ -38,14 +38,16 @@ async def send_to_frontend(condition: Optional[str] = None,
             tasks = tasks.limit(count)
 
         tasks2 = (await session.execute(tasks)).scalars().all()
-        tasks_data = [{'id': item.id,
-                       'level': item.level,
-                       'category': item.category,
-                       'subcategory': item.subcategory,
-                       'condition': item.condition,
-                       'source': item.source,
-                       'answer_type': item.answer_type
-                       } for item in tasks2]
+        tasks_data = [{
+            'id': item.id,
+            'level': item.level,
+            'category': item.category,
+            'subcategory': item.subcategory,
+            'condition': item.condition,
+            'source': item.source,
+            'answer_type': item.answer_type,
+            'answer': item.answer
+        } for item in tasks2]
         return utils.json_response({'tasks': tasks_data})
 
 
