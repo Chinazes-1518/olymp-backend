@@ -22,7 +22,7 @@ async def lifespan(app: FastAPI):
     #     await routes.administration.import_tasks_to_db({
     #         'id': record['id'],
     #         'level': int(record['difficulty']),
-    #         'category': 'Геометрия',
+    #         'category': 'Логика и теория множеств',
     #         'subcategory': list(set(record['subcategory'])),
     #         'condition': record['condition'],
     #         'solution': record['solution'],

@@ -48,6 +48,20 @@ async def send_to_frontend(condition: Optional[str] = None,
             'answer_type': item.answer_type,
             'answer': item.answer
         } for item in tasks2]
+        if condition and condition.isalpha():
+            item = (await session.execute(select(database.Tasks).where(database.Tasks.id == int(condition)))).scalar_one_or_none()
+            if item is not None:
+                tasks_data.insert(0, {
+                    'id': item.id,
+                    'level': item.level,
+                    'category': item.category,
+                    'subcategory': item.subcategory,
+                    'condition': item.condition,
+                    'solution': item.solution,
+                    'source': item.source,
+                    'answer_type': item.answer_type,
+                    'answer': item.answer
+                })
         return utils.json_response({'tasks': tasks_data})
 
 
