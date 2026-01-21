@@ -194,6 +194,13 @@ async def broadcast(data: dict) -> None:
         await s.send_json(data)
 
 
+async def ws_error(websocket: WebSocket, msg: str):
+    await websocket.send_json({
+        'event': 'error',
+        'message': msg
+    })
+
+
 @router.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
@@ -400,47 +407,49 @@ async def websocket_endpoint(websocket: WebSocket):
 
                     asyncio.create_task(start_game_timer(room))
                 elif cmd == 'send_answer':
-                    if not verify_params(data, ['answer']):
-                        await websocket.send_json({
-                            'event': 'error',
-                            'message': 'No answer specified'
-                        })
+                    if not verify_params(data, ['answer', 'task_id']):
+                        await ws_error(websocket, 'Wrong params')
                         continue
 
                     room = battle_manager.get_room_by_user(user_id)
                     if room is None or room.status != 'started':
-                        await websocket.send_json({
-                            'event': 'error',
-                            'message': 'Not in game'
-                        })
+                        await ws_error(websocket, 'Not in game')
                         continue
 
-                    # player = "player1" if user_id == room.host else "player2"
+                    task = (await session.execute(select(database.Tasks).where(database.Tasks.id == int(data['task_id'])))).scalar_one_or_none()
+                    if task is None:
+                        await ws_error(websocket, 'Task not found')
+                        continue
+                        
+                    correct = str(data['answer']).strip() == str(task.answer).strip()
+                    
 
-                    # is_correct, time_spent = room.submit_answer(
-                    #     player,
-                    #     data['answer']
-                    # )
+                        # player = "player1" if user_id == room.host else "player2"
 
-                    # if is_correct:
-                    #     await websocket.send_json({
-                    #         'event': 'ответ правильный',
-                    #         'номер_задачи': room.game_state.current_task,
-                    #         'затраченное_время': time_spent
-                    #     })
-                    # else:
-                    #     await websocket.send_json({
-                    #         'event': 'ответ неправильный',
-                    #         'номер_задачи': room.game_state.current_task,
-                    #         'затраченное_время': time_spent
-                    #     })
+                        # is_correct, time_spent = room.submit_answer(
+                        #     player,
+                        #     data['answer']
+                        # )
 
-                    # other_user_id = room.other if user_id == room.host else room.host
-                    # await room.send_to_user(other_user_id, {
-                    #     'event': 'ответ получен',
-                    #     'игрок': player,
-                    #     'номер_задачи': room.game_state.current_task
-                    # })
+                        # if is_correct:
+                        #     await websocket.send_json({
+                        #         'event': 'ответ правильный',
+                        #         'номер_задачи': room.game_state.current_task,
+                        #         'затраченное_время': time_spent
+                        #     })
+                        # else:
+                        #     await websocket.send_json({
+                        #         'event': 'ответ неправильный',
+                        #         'номер_задачи': room.game_state.current_task,
+                        #         'затраченное_время': time_spent
+                        #     })
+
+                        # other_user_id = room.other if user_id == room.host else room.host
+                        # await room.send_to_user(other_user_id, {
+                        #     'event': 'ответ получен',
+                        #     'игрок': player,
+                        #     'номер_задачи': room.game_state.current_task
+                        # })
                 elif cmd == 'отправить сообщение в чат':
                     if not verify_params(data, ['message']):
                         await websocket.send_json({

@@ -55,7 +55,7 @@ async def check_answer(answer: Annotated[str, Query],
 @router.get('/task_id')
 async def find_task(id: Annotated[int, Query]):
     async with database.sessions.begin() as session:
-        request = (await session.execute(select(database.Tasks)).where(database.Tasks.id == id))
+        request = (await session.execute(select(database.Tasks).where(database.Tasks.id == id)))
         k = request.scalar_one_or_none()
         if k is None:
             raise HTTPException(403, {"error": "Задачи с таким id не существует"})
