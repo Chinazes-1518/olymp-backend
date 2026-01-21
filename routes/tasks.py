@@ -3,7 +3,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import select, insert, update, or_, and_, String, cast, func
 from pydantic import BaseModel, constr
 from sqlalchemy.util import greenlet_spawn
-from typing import Annotated
+from typing import Annotated, Optional
 import database
 import utils
 from .websocket import websocket_endpoint
@@ -14,22 +14,23 @@ router = APIRouter(prefix='/tasks')
 
 
 @router.get('/get')
-async def send_to_frontend(condition: Annotated[str, Query()],
-                   level_start: Annotated[int, Query()],
-                   level_end: Annotated[int, Query()],
-                   category: Annotated[str, Query()],
-                   subcategory: Annotated[list[str], Query()],
-                   count: Annotated[int, Query()]) -> JSONResponse:
+async def send_to_frontend(condition: Optional[str] = None,
+                   level_start: Optional[int] = 0,
+                   level_end: Optional[int] = 10,
+                   category: Optional[str] = None,
+                   subcategory: Optional[list[str]] = [],
+                   count: Optional[int] = 0) -> JSONResponse:
     async with database.sessions.begin() as session:
-        tasks = (await session.execute(select(database.Tasks).where(
-            and_(database.Tasks.condition.contains(condition),
-                database.Tasks.level >= level_start,
-                database.Tasks.level <= level_end,
-                database.Tasks.category == category,
-                cast(
-                    database.Tasks.subcategory,
-                    ARRAY(String)).op('&&')(
-                    subcategory))).limit(count))).scalars().all()
+        tasks = select(database.Tasks)
+        tasks = tasks.where(and_(database.Tasks.level >= level_start, database.Tasks.level <= level_end,
+                                 cast(database.Tasks.subcategory, ARRAY(String)).op('&&')(subcategory)))
+        if condition is not None:
+            tasks = tasks.where(database.Tasks.condition.contains(condition))
+        if category is not None:
+            tasks = tasks.where(database.Tasks.category == category)
+        if count > 0:
+            tasks = tasks.limit(count)
+        tasks = (await session.execute(tasks)).scalars().all()
         tasks_data = [{'id': item.id,
                        'level': item.level,
                        'category': item.category,
@@ -45,12 +46,13 @@ async def send_to_frontend(condition: Annotated[str, Query()],
 async def check_answer(answer: Annotated[str, Query],
                        id: Annotated[int, Query]) -> JSONResponse:
     async with database.sessions.begin() as session:
-        request = (await session.execute(select(database.Tasks)).where(database.Tasks.id == id))
+        request = (await session.execute(select(database.Tasks).where(database.Tasks.id == id)))
         m = request.scalar_one_or_none()
         if m.answer == answer:
             return utils.json_response({'Correct': True})
         else:
             return utils.json_response({'Incorrect': False})
+
 
 @router.get('/task_id')
 async def find_task(id: Annotated[int, Query]):
@@ -64,6 +66,8 @@ async def find_task(id: Annotated[int, Query]):
                                         'subcategory': k.subcategory, 'condition': k.condition,
                                         'solution': k.solution, 'answer': k.answer, 'source': k.source,
                                         'answer_type': k.answer_type})
+
+
 
 
 
