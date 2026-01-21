@@ -78,3 +78,21 @@ async def find_task(id: Annotated[int, Query]):
                                         'subcategory': k.subcategory, 'condition': k.condition,
                                         'solution': k.solution, 'answer': k.answer, 'source': k.source,
                                         'answer_type': k.answer_type})
+
+@router.get('/get_categories')
+async def get_categories():
+    async with database.sessions.begin() as session:
+        request = (await session.execute(select(database.Categories)))
+        b = request.scalars().all()
+        categories_data = [{'id': item.id, 'name': item.name} for item in b]
+        return utils.json_response({'categories': categories_data})
+
+
+
+@router.get('/get_subcategories')
+async def get_categories(category_id: Annotated[int, Query]):
+    async with database.sessions.begin() as session:
+        request = (await session.execute(select(database.SubCategories).where(database.SubCategories.category_id == category_id)))
+        b = request.scalars().all()
+        subcategories_data = [{'id': item.id, 'name': item.name} for item in b]
+        return utils.json_response({'subcategories': subcategories_data})
