@@ -3,7 +3,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import select, insert, update, or_, and_, String, cast, func
 from pydantic import BaseModel, constr
 from sqlalchemy.util import greenlet_spawn
-from typing import Annotated, Optional
+from typing import Annotated, Optional, Union, List
 import database
 import utils
 from .websocket import websocket_endpoint
@@ -18,8 +18,10 @@ async def send_to_frontend(condition: Optional[str] = None,
                            level_start: Optional[int] = 0,
                            level_end: Optional[int] = 10,
                            category: Optional[str] = None,
-                           subcategory: Optional[list[str]] = [],
+                           subcategory: Union[List[str], None] = Query(None),
                            count: Optional[int] = 0) -> JSONResponse:
+    if subcategory is None:
+        subcategory = []
     async with database.sessions.begin() as session:
         tasks = select(database.Tasks)
         tasks = tasks.where(and_(
