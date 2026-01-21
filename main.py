@@ -13,6 +13,7 @@ async def lifespan(app: FastAPI):
     print("Creating tables in database")
     async with database.engine.begin() as connection:
         await connection.run_sync(database.MainBase.metadata.create_all)
+    # await routes.analytics.change_values({'task_quantity': 3, 'answer_quantity': 5, 'time_per_task': {'123456': 180}})
 
     # print('Adding tasks from json')
     # with open('misc/tasks.json', encoding='utf8') as f:
