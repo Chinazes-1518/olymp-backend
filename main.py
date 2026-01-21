@@ -14,21 +14,21 @@ async def lifespan(app: FastAPI):
     async with database.engine.begin() as connection:
         await connection.run_sync(database.MainBase.metadata.create_all)
     
-    print('Adding tasks from json')
-    with open('misc/tasks.json', encoding='utf8') as f:
-        data = json.load(f)
-    for record in data:
-        await routes.administration.import_tasks_to_db({
-            'id': record['id'],
-            'level': record['difficulty'],
-            'category': 'Логика и теория множеств',
-            'subcategory': ['123', '456'],
-            'condition': '1',
-            'solution': '2',
-            'answer': '3',
-            'source': '4',
-            'answer_type': '5'
-        })
+    # print('Adding tasks from json')
+    # with open('misc/tasks.json', encoding='utf8') as f:
+    #     data = json.load(f)
+    # for record in data:
+    #     await routes.administration.import_tasks_to_db({
+    #         'id': record['id'],
+    #         'level': record['difficulty'],
+    #         'category': 'Логика и теория множеств',
+    #         'subcategory': ['123', '456'],
+    #         'condition': '1',
+    #         'solution': '2',
+    #         'answer': '3',
+    #         'source': '4',
+    #         'answer_type': '5'
+    #     })
     
     yield
 
