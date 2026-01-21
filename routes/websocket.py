@@ -422,7 +422,11 @@ async def websocket_endpoint(websocket: WebSocket):
                         continue
                         
                     correct = str(data['answer']).strip() == str(task.answer).strip()
-                    
+
+                    if user_id == room.host:
+                        pass
+                    else:
+                        pass
 
                         # player = "player1" if user_id == room.host else "player2"
 
