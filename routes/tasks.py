@@ -43,6 +43,7 @@ async def send_to_frontend(condition: Optional[str] = None,
             'category': item.category,
             'subcategory': item.subcategory,
             'condition': item.condition,
+            'solution': item.solution,
             'source': item.source,
             'answer_type': item.answer_type,
             'answer': item.answer

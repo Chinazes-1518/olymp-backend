@@ -13,23 +13,23 @@ async def lifespan(app: FastAPI):
     print("Creating tables in database")
     async with database.engine.begin() as connection:
         await connection.run_sync(database.MainBase.metadata.create_all)
-    
-    print('Adding tasks from json')
-    with open('misc/tasks.json', encoding='utf8') as f:
-        data = json.load(f)
-    for record in data:
-        await routes.administration.import_tasks_to_db({
-            'id': record['id'],
-            'level': record['difficulty'],
-            'category': 'Логика и теория множеств',
-            'subcategory': ['123', '456'],
-            'condition': '1',
-            'solution': '2',
-            'answer': '3',
-            'source': '4',
-            'answer_type': '5'
-        })
-    
+
+    # print('Adding tasks from json')
+    # with open('misc/tasks.json', encoding='utf8') as f:
+    #     data = json.load(f)
+    # for record in data[:50]:
+    #     await routes.administration.import_tasks_to_db({
+    #         'id': record['id'],
+    #         'level': int(record['difficulty']),
+    #         'category': 'Геометрия',
+    #         'subcategory': list(set(record['subcategory'])),
+    #         'condition': record['condition'],
+    #         'solution': record['solution'],
+    #         'answer': record['answer'],
+    #         'source': 'problems.ru',
+    #         'answer_type': 'string'
+    #     })
+
     yield
 
 # {
@@ -52,4 +52,9 @@ app.add_middleware(
 )
 
 if __name__ == "__main__":
-    uvicorn.run("__main__:app", host="0.0.0.0", port=8000, reload=True, workers=2)
+    uvicorn.run(
+        "__main__:app",
+        host="0.0.0.0",
+        port=8000,
+        reload=True,
+        workers=2)
