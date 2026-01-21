@@ -149,7 +149,7 @@ def sanitize_task_data(task):
     }
 
 
-async def get_user_by_id(session, user_id: int):
+async def user_by_id(session, user_id: int):
     user = await session.execute(select(database.Users).where(database.Users.id == user_id))
     return user.scalar_one_or_none()
 

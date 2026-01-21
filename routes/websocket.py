@@ -408,17 +408,10 @@ async def websocket_endpoint(websocket: WebSocket):
                         continue
 
                     room = battle_manager.get_room_by_user(user_id)
-                    if room is None or room.game_state is None:
+                    if room is None or room.status != 'started':
                         await websocket.send_json({
-                            'event': 'ошибка',
-                            'сообщение': 'Вы не в игре'
-                        })
-                        continue
-
-                    if room.game_state.status != "started":
-                        await websocket.send_json({
-                            'event': 'ошибка',
-                            'сообщение': 'Игра еще не началась или уже завершена'
+                            'event': 'error',
+                            'message': 'Not in game'
                         })
                         continue
 
