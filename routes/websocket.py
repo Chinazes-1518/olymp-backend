@@ -415,33 +415,32 @@ async def websocket_endpoint(websocket: WebSocket):
                         })
                         continue
 
-                    player = "player1" if user_id == room.host else "player2"
+                    # player = "player1" if user_id == room.host else "player2"
 
-                    is_correct, time_spent = room.game_state.submit_answer(
-                        player,
-                        data['answer']
-                    )
+                    # is_correct, time_spent = room.submit_answer(
+                    #     player,
+                    #     data['answer']
+                    # )
 
-                    if is_correct:
-                        await websocket.send_json({
-                            'event': 'ответ правильный',
-                            'номер_задачи': room.game_state.current_task,
-                            'затраченное_время': time_spent
-                        })
-                    else:
-                        await websocket.send_json({
-                            'event': 'ответ неправильный',
-                            'номер_задачи': room.game_state.current_task,
-                            'затраченное_время': time_spent
-                        })
+                    # if is_correct:
+                    #     await websocket.send_json({
+                    #         'event': 'ответ правильный',
+                    #         'номер_задачи': room.game_state.current_task,
+                    #         'затраченное_время': time_spent
+                    #     })
+                    # else:
+                    #     await websocket.send_json({
+                    #         'event': 'ответ неправильный',
+                    #         'номер_задачи': room.game_state.current_task,
+                    #         'затраченное_время': time_spent
+                    #     })
 
-                    other_user_id = room.other if user_id == room.host else room.host
-                    await room.send_to_user(other_user_id, {
-                        'event': 'ответ получен',
-                        'игрок': player,
-                        'номер_задачи': room.game_state.current_task
-                    })
-
+                    # other_user_id = room.other if user_id == room.host else room.host
+                    # await room.send_to_user(other_user_id, {
+                    #     'event': 'ответ получен',
+                    #     'игрок': player,
+                    #     'номер_задачи': room.game_state.current_task
+                    # })
                 elif cmd == 'отправить сообщение в чат':
                     if not verify_params(data, ['message']):
                         await websocket.send_json({
@@ -467,7 +466,6 @@ async def websocket_endpoint(websocket: WebSocket):
                         'сообщение': data['message'],
                         'время': time.strftime("%H:%M:%S")
                     })
-
                 elif cmd == 'запросить состояние игры':
                     room = battle_manager.get_room_by_user(user_id)
                     if room is None or room.game_state is None:
@@ -489,7 +487,6 @@ async def websocket_endpoint(websocket: WebSocket):
                         'очки_игрока1': room.game_state.player1_points,
                         'очки_игрока2': room.game_state.player2_points
                     })
-
                 elif cmd == 'изменить статус готовности':
                     if not verify_params(data, ['ready']):
                         await websocket.send_json({
@@ -521,11 +518,10 @@ async def websocket_endpoint(websocket: WebSocket):
                         'event': 'статус игрока',
                         'ваш_статус': "готов" if data['ready'] else "не готов"
                     })
-
                 else:
                     await websocket.send_json({
-                        'event': 'ошибка',
-                        'сообщение': f'Неизвестная команда: {cmd}'
+                        'event': 'error',
+                        'message': f'Unknown command: {cmd}'
                     })
         except WebSocketDisconnect:
             if current_room and user_id:

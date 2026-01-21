@@ -5,19 +5,6 @@ from database.database import Tasks
 from utils import json_response, token_to_user, user_by_id
 import database
 from typing import Annotated
-import asyncio
-import json
-import time
-from datetime import datetime
-
-
-# class GameState:
-#     def __init__(self, task_ids: list, time_limit: int):
-
-#     def to_dict(self):
-#         return {
-#         }
-
 
 class Room:
     def __init__(self, host: int, host_ws: WebSocket,
@@ -28,7 +15,6 @@ class Room:
         self.other_ws: WebSocket | None = None
         self.id = id
         self.name = name
-        # self.game_state: GameState | None = None
         self.task_data: list[Tasks] = []
         self.time_limit: int | None = None
         self.start_time: float | None = None
