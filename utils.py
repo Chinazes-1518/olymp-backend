@@ -19,26 +19,13 @@ async def token_to_user(session, token: str) -> None:
         return item
 
 
-async def calculate_elo_rating(player1_rating: int, player2_rating: int,
-                               player1_score: float, k_factor: int = 32) -> tuple[int, int, int, int]:
-    def expected_score(rating_a: int, rating_b: int) -> float:
-        return 1 / (1 + 10 ** ((rating_b - rating_a) / 400))
-
-    expected_player1 = expected_score(player1_rating, player2_rating)
-    expected_player2 = 1 - expected_player1
-
-    player2_score = 1 - player1_score if player1_score != 0.5 else 0.5
-
-    player1_change = k_factor * (player1_score - expected_player1)
-    player2_change = k_factor * (player2_score - expected_player2)
-
-    player1_new_rating = player1_rating + player1_change
-    player2_new_rating = player2_rating + player2_change
-
-    return (int(round(player1_new_rating)),
-            int(round(player2_new_rating)),
-            int(round(player1_change)),
-            int(round(player2_change)))
+def calculate_elo_rating(rating_a: int, rating_b: int, score_a: int, score_b: int,
+                         k_factor: int = 32) -> tuple[int, int]:
+    E_a = 1 / (1 + 10 ** ((rating_b - rating_a) / 400))
+    E_b = 1 / (1 + 10 ** ((rating_a - rating_b) / 400))
+    rating_a_1 = rating_a + k_factor * (score_a - E_a)
+    rating_b_1 = rating_b + k_factor * (score_b - E_b)
+    return int(rating_a_1), int(rating_b_1)
 
 
 async def calculate_battle_points_and_elo(player1_id: int, player2_id: int, session,

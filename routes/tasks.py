@@ -1,12 +1,9 @@
-from fastapi import APIRouter, HTTPException, FastAPI, Header, Query
+from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import JSONResponse
-from sqlalchemy import select, insert, update, or_, and_, String, cast, func
-from pydantic import BaseModel, constr
-from sqlalchemy.util import greenlet_spawn
+from sqlalchemy import select, and_, String, cast
 from typing import Annotated, Optional
 import database
 import utils
-from .websocket import websocket_endpoint
 from sqlalchemy.dialects.postgresql import ARRAY
 
 
