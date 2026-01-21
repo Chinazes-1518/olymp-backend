@@ -1,7 +1,9 @@
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import JSONResponse
-from sqlalchemy import select, and_, String, cast
-from typing import Annotated, Optional
+from sqlalchemy import select, insert, update, or_, and_, String, cast, func
+from pydantic import BaseModel, constr
+from sqlalchemy.util import greenlet_spawn
+from typing import Annotated, Optional, Union, List
 import database
 import utils
 from sqlalchemy.dialects.postgresql import ARRAY
@@ -15,8 +17,10 @@ async def send_to_frontend(condition: Optional[str] = None,
                            level_start: Optional[int] = 0,
                            level_end: Optional[int] = 10,
                            category: Optional[str] = None,
-                           subcategory: Optional[list[str]] = [],
+                           subcategory: Union[List[str], None] = Query(None),
                            count: Optional[int] = 0) -> JSONResponse:
+    if subcategory is None:
+        subcategory = []
     async with database.sessions.begin() as session:
         tasks = select(database.Tasks)
         tasks = tasks.where(and_(
@@ -73,3 +77,21 @@ async def find_task(id: Annotated[int, Query]):
                                         'subcategory': k.subcategory, 'condition': k.condition,
                                         'solution': k.solution, 'answer': k.answer, 'source': k.source,
                                         'answer_type': k.answer_type})
+
+@router.get('/get_categories')
+async def get_categories():
+    async with database.sessions.begin() as session:
+        request = (await session.execute(select(database.Categories)))
+        b = request.scalars().all()
+        categories_data = [{'id': item.id, 'name': item.name} for item in b]
+        return utils.json_response({'categories': categories_data})
+
+
+
+@router.get('/get_subcategories')
+async def get_categories(category_id: Annotated[int, Query]):
+    async with database.sessions.begin() as session:
+        request = (await session.execute(select(database.SubCategories).where(database.SubCategories.category_id == category_id)))
+        b = request.scalars().all()
+        subcategories_data = [{'id': item.id, 'name': item.name} for item in b]
+        return utils.json_response({'subcategories': subcategories_data})

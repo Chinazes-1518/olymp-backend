@@ -20,12 +20,26 @@ class Users(MainBase):
     surname: Mapped[str]
 
 
+
+class Categories(MainBase):
+    __tablename__ = 'categories'
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str]
+
+
+class SubCategories(MainBase):
+    __tablename__ = 'subcategories'
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str]
+    category_id: Mapped[int] = mapped_column(Integer, ForeignKey(Categories.id))
+
+
 class Tasks(MainBase):
     __tablename__ = 'tasks'
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     level: Mapped[int]
-    category: Mapped[str]
-    subcategory: Mapped[list[str]] = Column(ARRAY(String))
+    category: Mapped[int] = mapped_column(Integer, ForeignKey(Categories.id))
+    subcategory: Mapped[list[int]] = Column(ARRAY(Integer))
     condition: Mapped[str]
     solution: Mapped[str]
     answer: Mapped[str]
@@ -51,5 +65,8 @@ class Analytics(MainBase):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     date: Mapped[datetime]
     data: Mapped[dict] = mapped_column(JSON)
+
+
+
 
 
