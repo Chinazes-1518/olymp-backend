@@ -15,22 +15,29 @@ router = APIRouter(prefix='/tasks')
 
 @router.get('/get')
 async def send_to_frontend(condition: Optional[str] = None,
-                   level_start: Optional[int] = 0,
-                   level_end: Optional[int] = 10,
-                   category: Optional[str] = None,
-                   subcategory: Optional[list[str]] = [],
-                   count: Optional[int] = 0) -> JSONResponse:
+                           level_start: Optional[int] = 0,
+                           level_end: Optional[int] = 10,
+                           category: Optional[str] = None,
+                           subcategory: Optional[list[str]] = [],
+                           count: Optional[int] = 0) -> JSONResponse:
     async with database.sessions.begin() as session:
         tasks = select(database.Tasks)
-        tasks = tasks.where(and_(database.Tasks.level >= level_start, database.Tasks.level <= level_end,
-                                 cast(database.Tasks.subcategory, ARRAY(String)).op('&&')(subcategory)))
+        tasks = tasks.where(and_(
+            database.Tasks.level >= level_start,
+            database.Tasks.level <= level_end,
+        ))
+        if subcategory:
+            tasks = tasks.where(cast(
+                database.Tasks.subcategory,
+                ARRAY(String)).op('&&')(subcategory))
         if condition is not None:
-            tasks = tasks.where(database.Tasks.condition.contains(condition))
+            tasks = tasks.where(database.Tasks.condition.icontains(condition))
         if category is not None:
             tasks = tasks.where(database.Tasks.category == category)
-        if count > 0:
+        if count is not None and count > 0:
             tasks = tasks.limit(count)
-        tasks = (await session.execute(tasks)).scalars().all()
+
+        tasks2 = (await session.execute(tasks)).scalars().all()
         tasks_data = [{'id': item.id,
                        'level': item.level,
                        'category': item.category,
@@ -38,7 +45,7 @@ async def send_to_frontend(condition: Optional[str] = None,
                        'condition': item.condition,
                        'source': item.source,
                        'answer_type': item.answer_type
-                       } for item in tasks]
+                       } for item in tasks2]
         return utils.json_response({'tasks': tasks_data})
 
 
@@ -60,28 +67,10 @@ async def find_task(id: Annotated[int, Query]):
         request = (await session.execute(select(database.Tasks).where(database.Tasks.id == id)))
         k = request.scalar_one_or_none()
         if k is None:
-            raise HTTPException(403, {"error": "Задачи с таким id не существует"})
+            raise HTTPException(
+                403, {"error": "Задачи с таким id не существует"})
         else:
             return utils.json_response({'id': k.id, 'level': k.level, 'category': k.category,
                                         'subcategory': k.subcategory, 'condition': k.condition,
                                         'solution': k.solution, 'answer': k.answer, 'source': k.source,
                                         'answer_type': k.answer_type})
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
