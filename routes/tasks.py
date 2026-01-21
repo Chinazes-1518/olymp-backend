@@ -41,6 +41,36 @@ async def send_to_frontend(condition: Annotated[str, Query()],
         return utils.json_response({'tasks': tasks_data})
 
 
+@router.get('/check_answer')
+async def check_answer(answer: Annotated[str, Query],
+                       id: Annotated[int, Query]) -> JSONResponse:
+    async with database.sessions.begin() as session:
+        request = (await session.execute(select(database.Tasks)).where(database.Tasks.id == id))
+        m = request.scalar_one_or_none()
+        if m.answer == answer:
+            return utils.json_response({'Correct': True})
+        else:
+            return utils.json_response({'Incorrect': False})
+
+@router.get('/task_id')
+async def find_task(id: Annotated[int, Query]):
+    async with database.sessions.begin() as session:
+        request = (await session.execute(select(database.Tasks)).where(database.Tasks.id == id))
+        k = request.scalar_one_or_none()
+        if k is None:
+            raise HTTPException(403, {"error": "Задачи с таким id не существует"})
+        else:
+            return utils.json_response({'id': k.id, 'level': k.level, 'category': k.category,
+                                        'subcategory': k.subcategory, 'condition': k.condition,
+                                        'solution': k.solution, 'answer': k.answer, 'source': k.source,
+                                        'answer_type': k.answer_type})
+
+
+
+
+
+
+
 
 
 
