@@ -65,6 +65,7 @@ class Analytics(MainBase):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     date: Mapped[datetime]
     data: Mapped[dict] = mapped_column(JSON)
+    userid: Mapped[int] = mapped_column(Integer, ForeignKey(Users.id))
 
 
 
