@@ -565,6 +565,9 @@ async def websocket_endpoint(websocket: WebSocket):
                 #         'ваш_статус': "готов" if data['ready'] else "не готов"
                 #     })
                 elif cmd == 'finish':
+                    if not verify_params(data, ['times']):
+                        await ws_error(websocket, 'Times not specified')
+                        continue
                     if current_room is None:
                         await ws_error(websocket, 'Not in a room')
                         continue
@@ -573,8 +576,16 @@ async def websocket_endpoint(websocket: WebSocket):
                         continue
                     if user.id == current_room.host:
                         current_room.player_1_stats.finished = True
+                        current_room.player_1_stats.times = data['times']
+                        await current_room.other_ws.send_json({
+                            'event': 'other_finished'
+                        })
                     else:
                         current_room.player_2_stats.finished = True
+                        current_room.player_2_stats.times = data['times']
+                        await current_room.other_ws.send_json({
+                            'event': 'other_finished'
+                        })
                     if current_room.player_1_stats.finished and current_room.player_2_stats.finished:
                         current_room.timer_task.cancel()
                         current_room.status = 'finishing'
@@ -590,6 +601,22 @@ async def websocket_endpoint(websocket: WebSocket):
                         current_room.player_1_stats.times = data['times']
                     else:
                         current_room.player_2_stats.times = data['times']
+                    if current_room.player_1_stats.times is not None and current_room.player_2_stats.times is not None:
+                        score_1_now = (await session.execute(select(database.Users).where(database.Users.id == current_room.host))).scalar_one().points
+                        score_2_now = (await session.execute(select(database.Users).where(database.Users.id == current_room.other))).scalar_one().points
+                        total_points = sum([utils.level_to_points(
+                            x.level) for x in current_room.task_data])
+
+                        score1new, score2new = utils.calculate_elo_rating(
+                            score_1_now, score_2_now, current_room.player_1_stats.points / total_points, current_room.player_2_stats.points / total_points)
+
+                        await current_room.broadcast({
+                            'event': 'scores',
+                            'host_new': score1new,
+                            'other_new': score2new
+                        })
+
+                        battle_manager.remove_room(current_room)
                 else:
                     await ws_error(websocket, f'Unknown command: {cmd}')
         except WebSocketDisconnect:

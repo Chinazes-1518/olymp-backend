@@ -1,28 +1,23 @@
 import hashlib
-from uuid import uuid4
-
-from fastapi import APIRouter, HTTPException, FastAPI, Query, Header
+from fastapi import APIRouter, HTTPException, Query, Header
 from fastapi.responses import JSONResponse
-from sqlalchemy import select, insert, update, String, cast, func
-from pydantic import BaseModel, constr
-from sqlalchemy.util import greenlet_spawn
+from sqlalchemy import select, insert
 from typing import Annotated
 
 import database
 import secrets
 import utils
+
+
 router = APIRouter(prefix='/auth')
+
 
 def hash_password(password: str) -> str:
     return hashlib.sha512((password + 'asejqweifqe39sasloQ!@').encode("utf-8")).hexdigest()
 
 
-
-
-
 def generate_token() -> str:
     return secrets.token_hex(24)
-
 
 
 @router.post('/register')
@@ -51,12 +46,11 @@ async def register(login: Annotated[str, Query()],
                                                                              name=name,
                                                                              surname=surname,
                                                                              role='user',
-                                                                             points=0,
+                                                                             points=1000,
                                                                              token=token))
         await session.commit()
         return utils.json_response({'token': token,
                                     'id': second_request.inserted_primary_key[0]})
-
 
 
 @router.post('/login')
@@ -76,9 +70,6 @@ async def login(login: Annotated[str, Query()],
           return utils.json_response({'token': user.token, 'id': user.id, 'name':user.name, 'surname': user.surname})
 
 
-
-
-
 @router.get('/verify')
 async def verify_token(token: Annotated[str, Header(alias="Authorization")]) -> JSONResponse:
     async with database.sessions.begin() as session:
@@ -86,10 +77,3 @@ async def verify_token(token: Annotated[str, Header(alias="Authorization")]) -> 
         if user is None:
             raise HTTPException(403, {"error": "Токен не существует"})
         return utils.json_response({'token': user.token, 'id': user.id, 'name': user.name, 'surname': user.surname})
-
-
-
-
-
-
-

@@ -1,11 +1,6 @@
-import hashlib
-from uuid import uuid4
-
-from fastapi import APIRouter, HTTPException, FastAPI, Header, Query
+from fastapi import APIRouter, HTTPException, Header
 from fastapi.responses import JSONResponse
-from sqlalchemy import select, insert, update, or_, and_
-from pydantic import BaseModel, constr
-from sqlalchemy.util import greenlet_spawn
+from sqlalchemy import select, insert, or_, and_
 from typing import Annotated
 
 import database
@@ -23,7 +18,7 @@ async def get_statistics(token: Annotated[str, Header(
             raise HTTPException(403, {'error': 'Пользователь не существует'})
         if user.role == 'administrator':
             request = await session.execute(select(database.BattleHistory))
-            history = request.skalars().all()
+            history = request.scalars().all()
             return utils.json_response({'history': history})
         else:
             request = await session.execute(select(database.BattleHistory)
@@ -56,9 +51,7 @@ async def import_task(data: Task, token: Annotated[str, Header(
         if user.role == 'administrator':
             await import_tasks_to_db([data])
         else:
-            raise HTTPException(
-                403, {
-                    'error': 'Импортировать задачи может только администратор!'})
+            raise HTTPException(403, {'error': 'Импортировать задачи может только администратор!'})
 
 
 @router.post('/import_tasks')
@@ -71,9 +64,7 @@ async def import_tasks(data: list[Task], token: Annotated[str, Header(
         if user.role == 'administrator':
             await import_tasks_to_db(data)
         else:
-            raise HTTPException(
-                403, {
-                    'error': 'Импортировать задачи может только администратор!'})
+            raise HTTPException(403, {'error': 'Импортировать задачи может только администратор!'})
 
 
 @router.post('/export_tasks')

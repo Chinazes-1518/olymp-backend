@@ -11,7 +11,7 @@ from typing import Annotated
 class PlayerStats:
     def __init__(self) -> None:
         self.answers = {}
-        self.times = {}
+        self.times = None
         self.points = 0
         self.solved = []
         self.finished = False

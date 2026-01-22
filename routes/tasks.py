@@ -1,3 +1,4 @@
+from re import sub
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import JSONResponse
 from sqlalchemy import select, and_, String, cast
@@ -15,10 +16,8 @@ async def send_to_frontend(condition: Optional[str] = None,
                            level_start: Optional[int] = 0,
                            level_end: Optional[int] = 10,
                            category: Optional[str] = None,
-                           subcategory: Union[List[str], None] = Query(None),
+                           subcategory: Optional[str] = None,
                            count: Optional[int] = 0) -> JSONResponse:
-    if subcategory is None:
-        subcategory = []
     async with database.sessions.begin() as session:
         tasks = select(database.Tasks)
         tasks = tasks.where(and_(
@@ -26,9 +25,10 @@ async def send_to_frontend(condition: Optional[str] = None,
             database.Tasks.level <= level_end,
         ))
         if subcategory:
+            subcategories = subcategory.strip().split(',')
             tasks = tasks.where(cast(
                 database.Tasks.subcategory,
-                ARRAY(String)).op('&&')(subcategory))
+                ARRAY(String)).op('&&')(subcategories))
         if condition is not None:
             tasks = tasks.where(database.Tasks.condition.icontains(condition))
         if category is not None:
