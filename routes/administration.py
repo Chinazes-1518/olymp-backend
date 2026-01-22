@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, Header
 from fastapi.responses import JSONResponse
 from sqlalchemy import select, insert, or_, and_
 from typing import Annotated
+from pydantic import BaseModel
 
 import database
 import utils
