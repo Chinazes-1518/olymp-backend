@@ -89,9 +89,7 @@ async def export_tasks(token: Annotated[str, Header(
                            } for item in tasks]
             return utils.json_response({'tasks': tasks_data})
         else:
-            raise HTTPException(
-                403, {
-                    'error': ' Экспортировать задачи может только администратор!'})
+            raise HTTPException(403, {'error': ' Экспортировать задачи может только администратор!'})
 
 
 async def import_tasks_to_db(data):

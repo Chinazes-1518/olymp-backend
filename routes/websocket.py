@@ -610,10 +610,17 @@ async def websocket_endpoint(websocket: WebSocket):
                         score1new, score2new = utils.calculate_elo_rating(
                             score_1_now, score_2_now, current_room.player_1_stats.points / total_points, current_room.player_2_stats.points / total_points)
 
+                        t1 = [v for k, v in current_room.player_1_stats.times.items() if k in current_room.player_1_stats.solved]
+                        t2 = [v for k, v in current_room.player_2_stats.times.items() if k in current_room.player_2_stats.solved]
+
                         await current_room.broadcast({
                             'event': 'scores',
-                            'host_new': score1new,
-                            'other_new': score2new
+                            'player1_new': score1new,
+                            'player1_correct': len(current_room.player_1_stats.solved),
+                            'player1_avgtime': sum(t1) / len(t1) if len(t1) > 0 else 0,
+                            'player2_new': score2new,
+                            'player2_correct': len(current_room.player_2_stats.solved),
+                            'player2_avgtime': sum(t2) / len(t2) if len(t2) > 0 else 0,
                         })
 
                         battle_manager.remove_room(current_room)
