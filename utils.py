@@ -19,6 +19,10 @@ async def token_to_user(session, token: str) -> None:
         return item
 
 
+def level_to_points(level: int):
+    return level * 10
+
+
 def calculate_elo_rating(rating_a: int, rating_b: int, score_a: int, score_b: int,
                          k_factor: int = 32) -> tuple[int, int]:
     E_a = 1 / (1 + 10 ** ((rating_b - rating_a) / 400))

@@ -1,10 +1,21 @@
 from __future__ import annotations
+from asyncio import Task
 
 from fastapi import APIRouter, HTTPException, WebSocket, Header
 from database.database import Tasks
 from utils import json_response, token_to_user, user_by_id
 import database
 from typing import Annotated
+
+
+class PlayerStats:
+    def __init__(self) -> None:
+        self.answers = {}
+        self.times = {}
+        self.points = 0
+        self.solved = []
+        self.finished = False
+
 
 class Room:
     def __init__(self, host: int, host_ws: WebSocket,
@@ -18,13 +29,10 @@ class Room:
         self.task_data: list[Tasks] = []
         self.time_limit: int | None = None
         self.start_time: float | None = None
-        self.player1_answers = {}
-        self.player2_answers = {}
-        self.player1_times = {}
-        self.player2_times = {}
-        self.player1_points = 0
-        self.player2_points = 0
+        self.player_1_stats = PlayerStats()  # host
+        self.player_2_stats = PlayerStats()  # other
         self.status = "waiting"
+        self.timer_task: Task | None = None
 
     def json(self) -> dict:
         return {
