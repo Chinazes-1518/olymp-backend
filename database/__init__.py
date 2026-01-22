@@ -6,5 +6,5 @@ from .database import *
 
 load_dotenv()
 
-engine = create_async_engine(f'postgresql+asyncpg://jaan:{os.getenv("DB_PASSWORD")}@{os.getenv("DB_HOST")}/postgres')
+engine = create_async_engine(f'postgresql+asyncpg://{os.getenv("DB_USER")}:{os.getenv("DB_PASSWORD")}@{os.getenv("DB_HOST")}/{os.getenv("DB_NAME")}')
 sessions = async_sessionmaker(engine)
