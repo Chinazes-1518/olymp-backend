@@ -2,6 +2,9 @@ from fastapi.responses import JSONResponse
 from fastapi.encoders import jsonable_encoder
 from sqlalchemy import select, insert, update
 from gigachat import GigaChat
+from sqlalchemy.ext import asyncio
+from dotenv import load_dotenv
+
 import os
 import database
 
