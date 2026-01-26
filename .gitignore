@@ -39,3 +39,4 @@ uv.lock
 .codspeed
 .venv
 misc/*.json
+misc/documents

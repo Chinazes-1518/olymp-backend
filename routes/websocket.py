@@ -627,8 +627,8 @@ async def websocket_endpoint(websocket: WebSocket):
                 else:
                     await ws_error(websocket, f'Unknown command: {cmd}')
         except WebSocketDisconnect:
-            if current_room and user_id:
-                await handle_player_leave(current_room, user_id)
+            # if current_room and user_id:
+            #     await handle_player_leave(current_room, user_id)
             print(f"Игрок {user_id} отключился")
             connected_websockets.remove(websocket)
             break
