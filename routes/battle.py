@@ -84,10 +84,10 @@ class BattleManager:
     def remove_room(self, room: Room):
         if room in self.rooms:
             self.rooms.remove(room)
-            if room.host in self.user_to_room:
-                del self.user_to_room[room.host]
-            if room.other and room.other in self.user_to_room:
-                del self.user_to_room[room.other]
+        if room.host in self.user_to_room:
+            del self.user_to_room[room.host]
+        if room.other and room.other in self.user_to_room:
+            del self.user_to_room[room.other]
 
     def user_join_room(self, user_id: int, room: Room, websocket: WebSocket):
         room.other = user_id

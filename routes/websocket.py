@@ -39,153 +39,6 @@ async def start_game_timer(room: Room):
     room.status = 'finishing'
 
 
-# async def handle_task_completion(room: Room):
-#     game_state = room.game_state
-
-#     if game_state.current_task >= len(room.tasks_data):
-#         return
-
-#     correct_answer = room.tasks_data[game_state.current_task].answer
-
-#     player1_answer = game_state.player1_answers.get(
-#         game_state.current_task, "")
-#     player2_answer = game_state.player2_answers.get(
-#         game_state.current_task, "")
-
-#     player1_correct = player1_answer.strip().lower() == correct_answer.strip().lower()
-#     player2_correct = player2_answer.strip().lower() == correct_answer.strip().lower()
-
-#     await room.broadcast({
-#         'event': 'результат задачи',
-#         'номер_задачи': game_state.current_task,
-#         'правильный_ответ': correct_answer,
-#         'игрок1_ответ': player1_answer,
-#         'игрок2_ответ': player2_answer,
-#         'игрок1_правильно': player1_correct,
-#         'игрок2_правильно': player2_correct,
-#         'игрок1_время': game_state.player1_times.get(game_state.current_task, 0),
-#         'игрок2_время': game_state.player2_times.get(game_state.current_task, 0)
-#     })
-
-#     if game_state.next_task():
-#         await asyncio.sleep(3)
-
-#         await room.broadcast({
-#             'event': 'отсчет времени',
-#             'секунд': 3,
-#             'сообщение': 'Следующее задание через'
-#         })
-
-#         for i in range(3, 0, -1):
-#             await room.broadcast({
-#                 'event': 'отсчет времени',
-#                 'секунд': i,
-#                 'сообщение': f'Начало через {i}...'
-#             })
-#             await asyncio.sleep(1)
-
-#         await room.broadcast({
-#             'event': 'задачи выбраны',
-#             'задача': game_state.get_current_task_data(),
-#             'номер_задачи': game_state.current_task,
-#             'всего_задач': len(game_state.task_ids)
-#         })
-
-#         asyncio.create_task(start_game_timer(room))
-#     else:
-#         await finish_game(room)
-
-
-# async def finish_game(room: Room):
-#     game_state = room.game_state
-#     game_state.status = "finished"
-
-#     player1_correct, player2_correct = game_state.calculate_final_points()
-
-#     async with database.sessions.begin() as session:
-#         player1_data = await get_user_by_id(session, room.host)
-# player2_data = await get_user_by_id(session, room.other) if room.other
-# else None
-
-#         player1_times = [game_state.player1_times.get(
-#             i, 0) for i in range(len(game_state.task_ids))]
-#         player1_points = await calculate_points(
-#             room.host, session,
-#             player1_correct, len(game_state.task_ids), player1_times
-#         )
-
-#         player2_points = 0
-#         if room.other:
-#             player2_times = [game_state.player2_times.get(
-#                 i, 0) for i in range(len(game_state.task_ids))]
-#             player2_points = await calculate_points(
-#                 room.other, session,
-#                 player2_correct, len(game_state.task_ids), player2_times
-#             )
-
-# await save_battle_history(session, room, player1_points, player2_points)
-
-#         if player1_correct > player2_correct:
-#             winner = player1_data.name if player1_data else "Игрок 1"
-#         elif player2_correct > player1_correct:
-#             winner = player2_data.name if player2_data else "Игрок 2"
-#         else:
-#             winner = "Ничья"
-
-#         await room.broadcast({
-#             'event': 'игра завершена',
-#             'сообщение': 'Игра завершена!'
-#         })
-
-#         await room.broadcast({
-#             'event': 'итоговые результаты',
-#             'результаты': {
-#                 'игрок1': {
-#                     'имя': player1_data.name if player1_data else 'Игрок 1',
-#                     'фамилия': player1_data.surname if player1_data else '',
-#                     'правильные_ответы': player1_correct,
-#                     'всего_задач': len(game_state.task_ids),
-#                     'очки': player1_points
-#                 },
-#                 'игрок2': {
-#                     'имя': player2_data.name if player2_data else 'Игрок 2',
-#                     'фамилия': player2_data.surname if player2_data else '',
-#                     'правильные_ответы': player2_correct,
-#                     'всего_задач': len(game_state.task_ids),
-#                     'очки': player2_points if room.other else 0
-#                 },
-#                 'победитель': winner
-#             }
-#         })
-
-#         await asyncio.sleep(10)
-#         battle_manager.remove_room(room)
-
-
-async def handle_player_leave(room: Room, user_id: int):
-    try:
-        if user_id == room.host:
-            if room.other_ws:
-                await room.other_ws.send_json({
-                    'event': 'room_deleted',
-                    'reason': 'Host left'
-                })
-            battle_manager.remove_room(room)
-        else:
-            room.other = None
-            room.other_ws = None
-
-            if room.host_ws:
-                await room.host_ws.send_json({
-                    'event': 'player_left',
-                    'user_id': user_id,
-                })
-
-            if user_id in battle_manager.user_to_room:
-                del battle_manager.user_to_room[user_id]
-    except Exception as e:
-        print(f"Ошибка при выходе игрока: {e}")
-
 connected_websockets: list[WebSocket] = []
 
 
@@ -307,12 +160,33 @@ async def websocket_endpoint(websocket: WebSocket):
                     })
                 elif cmd == 'leave_room':
                     if current_room:
-                        await handle_player_leave(current_room, user_id)
+                        if user_id == current_room.host:
+                            await broadcast({
+                                'event': 'room_deleted',
+                                'room_id': current_room.id
+                            })
+                            battle_manager.remove_room(current_room)
+                        else:
+                            current_room.other = None
+                            current_room.other_ws = None
+
+                            await broadcast({
+                                'event': 'player_left',
+                                'room_id': current_room.id,
+                            })
+
+                            if user_id in battle_manager.user_to_room:
+                                del battle_manager.user_to_room[user_id]
                         current_room = None
 
-                    await websocket.send_json({
-                        'event': 'leave_succesful',
-                    })
+                        await websocket.send_json({
+                            'event': 'leave_succesful',
+                        })
+                    else:
+                        await websocket.send_json({
+                            'event': 'error',
+                            'message': 'not in a room'
+                        })
                 elif cmd == 'start_game':
                     required_params = [
                         'diff_start',
