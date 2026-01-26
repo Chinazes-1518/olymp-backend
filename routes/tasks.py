@@ -67,32 +67,37 @@ async def send_to_frontend(condition: Optional[str] = None,
 
 @router.get('/check_answer')
 async def check_answer(answer: Annotated[str, Query],
-                       id: Annotated[int, Query]) -> JSONResponse:
+                       id: Annotated[int, Query], token: Annotated[str, Header(alias="Authorization")]) -> JSONResponse:
     async with database.sessions.begin() as session:
-        #user = await utils.token_to_user(session, token)
-        #if user is None:
-            #raise HTTPException(403, {"error": "Токен не существует"})
+        user = await utils.token_to_user(session, token)
+        if user is None:
+            raise HTTPException(403, {"error": "Токен не существует"})
         request = (await session.execute(select(database.Tasks).where(database.Tasks.id == id)))
         b = request.scalars().one_or_none()
-        get_answer = utils.gigachat_check_answer(answer, b.condition, b.answer)
+        if b is None:
+            raise HTTPException(403, {"error": "Задачи не существует"})
+        get_answer = utils.gigachat_check_answer(answer, str(b.condition), str(b.answer))
         return utils.json_response({'Correct': get_answer.lower() == 'да'})
 
 
 
 @router.get('/check_answer_and_solution')
 async def check_answer(answer: Annotated[str, Query], solution: Optional[str],
-                       id: Annotated[int, Query]) -> JSONResponse:
+                       id: Annotated[int, Query], token: Annotated[str, Header(alias="Authorization")]) -> JSONResponse:
     async with database.sessions.begin() as session:
-        #user = await utils.token_to_user(session, token)
-        #if user is None:
-            #raise HTTPException(403, {"error": "Токен не существует"})
+        user = await utils.token_to_user(session, token)
+        if user is None:
+            raise HTTPException(403, {"error": "Токен не существует"})
         request = (await session.execute(select(database.Tasks).where(database.Tasks.id == id)))
         b = request.scalars().one_or_none()
         if solution is None:
             get_answer = utils.gigachat_check_answer(answer, b.condition, b.answer)
             return utils.json_response({'Correct': get_answer.lower() == 'да'})
         get_answer = utils.gigachat_check_training_answer(answer, solution, b.condition, b.answer, b.solution)
-        return utils.json_response({'Correct': get_answer.lower() == 'да'})
+        if get_answer.lower() == 'да':
+            return utils.json_response({'correct': True})
+        else:
+            return utils.json_response({'correct': False, 'explanation': get_answer})
 
 
 
