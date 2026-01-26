@@ -2,7 +2,10 @@ from fastapi.responses import JSONResponse
 from fastapi.encoders import jsonable_encoder
 from sqlalchemy import select, insert, update
 from datetime import datetime
-
+from gigachat import GigaChat
+from sqlalchemy.ext import asyncio
+from dotenv import load_dotenv
+import os
 import database
 
 
@@ -249,3 +252,31 @@ async def finish_game_normal(room, session):
     await asyncio.sleep(10)
     from .battle import battle_manager
     battle_manager.remove_room(room)
+
+
+def gigachat_check_answer(user_answer, task_condition, task_answer):
+    with GigaChat(credentials=os.getenv('GIGACHAT_AUTHORIZATION_KEY'), verify_ssl_certs=False,
+                  scope=os.getenv('GIGACHAT_API_PERS')) as giga:
+        answer = giga.chat({'условие задачи': task_condition,
+                            'правильный ответ на задачу': task_answer,
+                           'ответ пользователя': user_answer,
+                            'формат ответа': 'Да или нет',
+                            'что нужно сделать':
+                                'проверить совпадает ли ответ пользователя с ответом автора на условие задачи'})
+        return answer.choices[0].message.content
+
+
+
+def gigachat_check_training_answer(user_answer, user_solution, task_condition, task_answer, task_solution):
+    with GigaChat(credentials=os.getenv('GIGACHAT_AUTHORIZATION_KEY'), verify_ssl_certs=False,
+                  scope=os.getenv('GIGACHAT_API_PERS')) as giga:
+        answer = giga.chat({'условие задачи': task_condition,
+                            'правильный ответ на задачу': task_answer,
+                            'правильное решение задачи': task_solution,
+                            'ответ пользователя': user_answer,
+                            'решение пользователя': user_solution,
+                            'что нужно сделать':
+                                'проверить совпадает ли ответ пользователя с ответом автора на условие задачи, если он совпадает,'
+                                ' то вывести Да или нет (верно или неверно решена задача),'
+                                ' если не совпадает, проверить решение пользователя, если оно предоставлено, и объяснить где пользователь совершил ошибку'})
+        return answer.choices[0].message.content
