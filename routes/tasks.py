@@ -1,5 +1,5 @@
 from re import sub
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Header
 from fastapi.responses import JSONResponse
 from sqlalchemy import select, and_, String, cast
 from typing import Annotated, Optional, Union, List
@@ -67,15 +67,15 @@ async def send_to_frontend(condition: Optional[str] = None,
 
 @router.get('/check_answer')
 async def check_answer(answer: Annotated[str, Query],
-                       id: Annotated[int, Query]) -> JSONResponse:
+                       id: Annotated[int, Query], token: Annotated[str, Header(alias="Authorization")]) -> JSONResponse:
     async with database.sessions.begin() as session:
+        user = await utils.token_to_user(session, token)
+        if user is None:
+            raise HTTPException(403, {"error": "Токен не существует"})
         request = (await session.execute(select(database.Tasks).where(database.Tasks.id == id)))
-        get_answer = utils.gigachat_check_answer()
-        m = request.scalar_one_or_none()
-        if m.answer == answer:
-            return utils.json_response({'Correct': True})
-        else:
-            return utils.json_response({'Incorrect': False})
+        b = request.scalars().all()
+        get_answer = utils.gigachat_check_answer(answer, b.condition, b.answer)
+        return utils.json_response({'Correct': get_answer.lower() == 'да'})
 
 
 @router.get('/task_id')
