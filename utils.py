@@ -257,7 +257,10 @@ async def finish_game_normal(room, session):
 def gigachat_check_answer(user_answer, task_condition, task_answer):
     with GigaChat(credentials=os.getenv('GIGACHAT_AUTHORIZATION_KEY'), verify_ssl_certs=False,
                   scope=os.getenv('GIGACHAT_API_PERS')) as giga:
-        answer = giga.chat({'условие задачи': task_condition, 'правильный ответ на задачу': task_answer,
-                           'ответ пользователя': user_answer, 'формат ответа': 'Да или нет',
-                            'что нужно сделать': 'проверить совпадает ли ответ пользователя с ответом автора на условие задачи'})
+        answer = giga.chat({'условие задачи': task_condition,
+                            'правильный ответ на задачу': task_answer,
+                           'ответ пользователя': user_answer,
+                            'формат ответа': 'Да или нет',
+                            'что нужно сделать':
+                                'проверить совпадает ли ответ пользователя с ответом автора на условие задачи'})
         return answer.choices[0].message.content
