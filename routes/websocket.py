@@ -84,6 +84,9 @@ async def websocket_endpoint(websocket: WebSocket):
                 user_id = user.id
                 cmd = data['event']
 
+                if current_room is None:
+                    current_room = battle_manager.get_room_by_user(user_id)
+
                 if cmd == 'create_room':
                     if not verify_params(data, ['name']):
                         await websocket.send_json({

@@ -64,7 +64,7 @@ async def hello():
             'token': '7d138b15382bbe4ccbad43e4da6d582152eecbbf2b5351eb',
         }))
 
-        await asyncio.sleep(1000)
+        await asyncio.sleep(5)
 
 
 

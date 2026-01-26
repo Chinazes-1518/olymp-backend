@@ -76,7 +76,7 @@ class BattleManager:
         return None
 
     def get_room_by_user(self, user_id: int) -> Room | None:
-        return self.user_to_room.get(user_id)
+        return self.user_to_room.get(user_id, None)
 
     def get_rooms(self) -> list[Room]:
         return self.rooms

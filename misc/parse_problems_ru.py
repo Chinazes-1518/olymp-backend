@@ -121,4 +121,4 @@ def parse_page(page_id, total):
             print(req.status_code)
 
 
-parse_page(214, 3)
+# parse_page(214, 3)
