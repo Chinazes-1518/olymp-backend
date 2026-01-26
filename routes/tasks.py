@@ -70,6 +70,7 @@ async def check_answer(answer: Annotated[str, Query],
                        id: Annotated[int, Query]) -> JSONResponse:
     async with database.sessions.begin() as session:
         request = (await session.execute(select(database.Tasks).where(database.Tasks.id == id)))
+        get_answer = utils.gigachat_check_answer()
         m = request.scalar_one_or_none()
         if m.answer == answer:
             return utils.json_response({'Correct': True})
