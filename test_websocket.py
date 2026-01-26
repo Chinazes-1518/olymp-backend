@@ -53,7 +53,9 @@ async def hello():
         print(await send(ws, {
             'event': 'create_room',
             'token': '7d138b15382bbe4ccbad43e4da6d582152eecbbf2b5351eb',
-            'name': 'test'
+            'name': 'test',
+            'count': 10,
+            'time_limit': 60
         }))
 
         await asyncio.sleep(3)

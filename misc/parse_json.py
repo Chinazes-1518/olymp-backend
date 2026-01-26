@@ -16,14 +16,19 @@ links = set()
 
 pattern = re.compile(r"https://problems.ru/show_document.php\?id=(\d+)")
 
+
+def replace_links(s):
+    return pattern.sub(lambda x: f'http://80.66.89.220/{x.group(1)}.gif', s)
+
+
 for d in data:
-    d['condition'] = ' '.join(d['condition'].split())
-    d['solution'] = ' '.join(d['solution'].split())
-    d['answer'] = ' '.join(d['answer'].split())
-    d['subcategory'] = sorted([x for x in set(d['subcategory']) if x != 'Неопределено'])
     links |= set(map(int, pattern.findall(d['condition'])))
     links |= set(map(int, pattern.findall(d['solution'])))
     links |= set(map(int, pattern.findall(d['answer'])))
+    d['condition'] = replace_links(' '.join(d['condition'].split()))
+    d['solution'] = replace_links(' '.join(d['solution'].split()))
+    d['answer'] = replace_links(' '.join(d['answer'].split()))
+    d['subcategory'] = sorted([x for x in set(d['subcategory']) if x != 'Неопределено'])
 
 with open(name + '.json', 'w', encoding='utf8') as f:
     json.dump(data, f, indent=4, ensure_ascii=False)
