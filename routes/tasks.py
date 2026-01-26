@@ -1,12 +1,15 @@
 from re import sub
 from fastapi import APIRouter, HTTPException, Query, Header
+from fastapi.params import Depends
 from fastapi.responses import JSONResponse
 from sqlalchemy import select, and_, String, cast
 from typing import Annotated, Optional, Union, List
 import database
 import utils
 from sqlalchemy.dialects.postgresql import ARRAY
+from fastapi.security import APIKeyHeader
 
+API_Key_Header = APIKeyHeader(name='Authorization', auto_error=True)
 
 router = APIRouter(prefix='/tasks')
 
@@ -67,7 +70,7 @@ async def send_to_frontend(condition: Optional[str] = None,
 
 @router.get('/check_answer')
 async def check_answer(answer: Annotated[str, Query],
-                       id: Annotated[int, Query], token: Annotated[str, Header(alias="Authorization")]) -> JSONResponse:
+                       id: Annotated[int, Query], token: str=Depends(API_Key_Header)) -> JSONResponse:
     async with database.sessions.begin() as session:
         user = await utils.token_to_user(session, token)
         if user is None:
@@ -83,7 +86,7 @@ async def check_answer(answer: Annotated[str, Query],
 
 @router.get('/check_answer_and_solution')
 async def check_answer(answer: Annotated[str, Query], solution: Optional[str],
-                       id: Annotated[int, Query], token: Annotated[str, Header(alias="Authorization")]) -> JSONResponse:
+                       id: Annotated[int, Query], token: str=Depends(API_Key_Header)) -> JSONResponse:
     async with database.sessions.begin() as session:
         user = await utils.token_to_user(session, token)
         if user is None:

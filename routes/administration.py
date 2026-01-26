@@ -3,16 +3,16 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import select, insert, or_, and_
 from typing import Annotated
 from pydantic import BaseModel
-
+from fastapi.security import APIKeyHeader
+from fastapi.params import Depends
 import database
 import utils
 
 router = APIRouter(prefix='/admin')
-
+API_Key_Header = APIKeyHeader(name='Authorization', auto_error=True)
 
 @router.post('/statistics')
-async def get_statistics(token: Annotated[str, Header(
-        alias='Authorization')]) -> JSONResponse:
+async def get_statistics(token: str=Depends(API_Key_Header)) -> JSONResponse:
     async with database.sessions.begin() as session:
         user = await utils.token_to_user(session, token)
         if user is None:
@@ -43,8 +43,7 @@ class Task(BaseModel):
 
 
 @router.post('/import_task')
-async def import_task(data: Task, token: Annotated[str, Header(
-        alias="Authorization")]) -> JSONResponse:
+async def import_task(data: Task, token: str=Depends(API_Key_Header)) -> JSONResponse:
     async with database.sessions.begin() as session:
         user = await utils.token_to_user(session, token)
         if user is None:
@@ -56,8 +55,7 @@ async def import_task(data: Task, token: Annotated[str, Header(
 
 
 @router.post('/import_tasks')
-async def import_tasks(data: list[Task], token: Annotated[str, Header(
-        alias="Authorization")]) -> JSONResponse:
+async def import_tasks(data: list[Task], token: str=Depends(API_Key_Header)) -> JSONResponse:
     async with database.sessions.begin() as session:
         user = await utils.token_to_user(session, token)
         if user is None:
@@ -69,8 +67,7 @@ async def import_tasks(data: list[Task], token: Annotated[str, Header(
 
 
 @router.post('/export_tasks')
-async def export_tasks(token: Annotated[str, Header(
-        alias="Authorization")]) -> JSONResponse:
+async def export_tasks(token: str=Depends(API_Key_Header)) -> JSONResponse:
     async with database.sessions.begin() as session:
         user = await utils.token_to_user(session, token)
         if user is None:
