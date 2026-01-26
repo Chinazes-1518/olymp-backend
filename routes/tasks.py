@@ -67,34 +67,34 @@ async def send_to_frontend(condition: Optional[str] = None,
 
 @router.get('/check_answer')
 async def check_answer(answer: Annotated[str, Query],
-                       id: Annotated[int, Query], token: Annotated[str, Header(alias="Authorization")]) -> JSONResponse:
+                       id: Annotated[int, Query]) -> JSONResponse:
     async with database.sessions.begin() as session:
-        user = await utils.token_to_user(session, token)
-        if user is None:
-            raise HTTPException(403, {"error": "Токен не существует"})
+        #user = await utils.token_to_user(session, token)
+        #if user is None:
+            #raise HTTPException(403, {"error": "Токен не существует"})
         request = (await session.execute(select(database.Tasks).where(database.Tasks.id == id)))
-        b = request.scalars().all()
+        b = request.scalars().one_or_none()
         get_answer = utils.gigachat_check_answer(answer, b.condition, b.answer)
         return utils.json_response({'Correct': get_answer.lower() == 'да'})
 
 
 
 @router.get('/check_answer_and_solution')
-async def check_answer(answer: Annotated[str, Query], solution: Optional[str, Query()],
-                       id: Annotated[int, Query], token: Annotated[str, Header(alias="Authorization")]) -> JSONResponse:
+async def check_answer(answer: Annotated[str, Query], solution: Optional[str],
+                       id: Annotated[int, Query]) -> JSONResponse:
     async with database.sessions.begin() as session:
-        user = await utils.token_to_user(session, token)
-        if user is None:
-            raise HTTPException(403, {"error": "Токен не существует"})
+        #user = await utils.token_to_user(session, token)
+        #if user is None:
+            #raise HTTPException(403, {"error": "Токен не существует"})
         request = (await session.execute(select(database.Tasks).where(database.Tasks.id == id)))
-        b = request.scalars().all()
+        b = request.scalars().one_or_none()
         if solution is None:
             get_answer = utils.gigachat_check_answer(answer, b.condition, b.answer)
             return utils.json_response({'Correct': get_answer.lower() == 'да'})
         get_answer = utils.gigachat_check_training_answer(answer, solution, b.condition, b.answer, b.solution)
         return utils.json_response({'Correct': get_answer.lower() == 'да'})
 
-    
+
 
 @router.get('/task_id')
 async def find_task(id: Annotated[int, Query]):

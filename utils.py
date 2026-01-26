@@ -5,6 +5,7 @@ from datetime import datetime
 from gigachat import GigaChat
 from sqlalchemy.ext import asyncio
 from dotenv import load_dotenv
+
 import os
 import database
 
