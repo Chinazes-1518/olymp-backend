@@ -18,7 +18,7 @@ pattern = re.compile(r"https://problems.ru/show_document.php\?id=(\d+)")
 
 
 def replace_links(s):
-    return pattern.sub(lambda x: f'http://80.66.89.220/{x.group(1)}.gif', s)
+    return pattern.sub(lambda x: f'https://cdn.saslo.fun/{x.group(1)}.gif', s)
 
 
 for d in data:
@@ -33,15 +33,15 @@ for d in data:
 with open(name + '.json', 'w', encoding='utf8') as f:
     json.dump(data, f, indent=4, ensure_ascii=False)
 
-for id in links:
+for i, id in enumerate(links):
     url = f'https://problems.ru/show_document.php?id={id}'
-    print(f'downloading document {url}')
+    print(f'downloading document {url} {i}/{len(links)}')
     if os.path.isfile(f'documents/{id}.gif'):
         continue
     r = requests.get(url)
     if r.status_code == 200:
         with open(f'documents/{id}.gif', 'wb') as f:
             f.write(r.content)
-            time.sleep(random.randint(3, 8))
+            time.sleep(random.randint(3, 5))
     else:
         print('error')

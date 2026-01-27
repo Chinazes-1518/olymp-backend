@@ -129,9 +129,12 @@ async def get_categories():
 
 
 @router.get('/get_subcategories')
-async def get_subcategories(category_id: Annotated[int, Query]):
+async def get_subcategories(category_id: Optional[int] = None):
     async with database.sessions.begin() as session:
-        request = (await session.execute(select(database.SubCategories).where(database.SubCategories.category_id == category_id)))
+        if category_id is None:
+            request = await session.execute(select(database.SubCategories))
+        else:
+            request = await session.execute(select(database.SubCategories).where(database.SubCategories.category_id == category_id))
         b = request.scalars().all()
         subcategories_data = [{'id': item.id, 'name': item.name} for item in b]
         return utils.json_response({'subcategories': subcategories_data})
