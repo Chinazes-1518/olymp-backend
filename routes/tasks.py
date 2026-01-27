@@ -1,7 +1,7 @@
 from re import sub
 from fastapi import APIRouter, HTTPException, Query, Header
 from fastapi.responses import JSONResponse
-from sqlalchemy import select, and_, String, cast
+from sqlalchemy import select, and_, String, cast, Integer
 from typing import Annotated, Optional, Union, List
 import database
 import utils
@@ -15,7 +15,7 @@ router = APIRouter(prefix='/tasks')
 async def send_to_frontend(condition: Optional[str] = None,
                            level_start: Optional[int] = 0,
                            level_end: Optional[int] = 10,
-                           category: Optional[str] = None,
+                           category: Optional[int] = None,
                            subcategory: Optional[str] = None,
                            count: Optional[int] = 0) -> JSONResponse:
     async with database.sessions.begin() as session:
@@ -25,10 +25,10 @@ async def send_to_frontend(condition: Optional[str] = None,
             database.Tasks.level <= level_end,
         ))
         if subcategory:
-            subcategories = subcategory.strip().split(',')
+            subcategories = list(map(int, subcategory.strip().split(',')))
             tasks = tasks.where(cast(
                 database.Tasks.subcategory,
-                ARRAY(String)).op('&&')(subcategories))
+                ARRAY(Integer)).op('&&')(subcategories))
         if condition is not None:
             tasks = tasks.where(database.Tasks.condition.icontains(condition))
         if category is not None:
@@ -82,7 +82,7 @@ async def check_answer(answer: Annotated[str, Query],
 
 
 @router.get('/check_answer_and_solution')
-async def check_answer(answer: Annotated[str, Query], solution: Optional[str],
+async def check_answer_and_solution(answer: Annotated[str, Query], solution: Optional[str],
                        id: Annotated[int, Query], token: Annotated[str, Header(alias="Authorization")]) -> JSONResponse:
     async with database.sessions.begin() as session:
         user = await utils.token_to_user(session, token)
