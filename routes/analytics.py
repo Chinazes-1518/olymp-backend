@@ -4,13 +4,14 @@ from sqlalchemy import select, update, insert, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Annotated
 from datetime import datetime, date, timedelta
-
+from fastapi.security import APIKeyHeader
 import database
 import utils
+from fastapi.params import Depends
 
 router = APIRouter(prefix='/analytics')
 
-
+API_Key_Header = APIKeyHeader(name='Authorization', auto_error=True)
 
 async def create_new_record(userid: int, session: AsyncSession):
     req = await session.execute(insert(database.Analytics).values(userid=userid, date=date.today(), data={'task_quantity': 0, 'answer_quantity': 0, 'time_per_task': {}}))
@@ -49,7 +50,7 @@ async def change_values(userid: int, count: dict):
 
 
 @router.get('/get_userid_by_datetime')
-async def get_userid_by_datetime(userid: int, start_date: datetime, final_date: datetime, token: Annotated[str, Header(alias="Authorization")]) -> JSONResponse:
+async def get_userid_by_datetime(userid: int, start_date: datetime, final_date: datetime, token: str=Depends(API_Key_Header)) -> JSONResponse:
             async with database.sessions.begin() as session:
                 user = await utils.token_to_user(session, token)
                 if user is None:

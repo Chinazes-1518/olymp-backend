@@ -1,13 +1,16 @@
 import hashlib
 from fastapi import APIRouter, HTTPException, Query, Header
 from fastapi.responses import JSONResponse
+from fastapi.security import APIKeyHeader
 from sqlalchemy import select, insert
 from typing import Annotated
+from fastapi.params import Depends
 
 import database
 import secrets
 import utils
 
+API_Key_Header = APIKeyHeader(name='Authorization', auto_error=True)
 
 router = APIRouter(prefix='/auth')
 
@@ -71,7 +74,7 @@ async def login(login: Annotated[str, Query()],
 
 
 @router.get('/verify')
-async def verify_token(token: Annotated[str, Header(alias="Authorization")]) -> JSONResponse:
+async def verify_token(token: str=Depends(API_Key_Header)) -> JSONResponse:
     async with database.sessions.begin() as session:
         user = await utils.token_to_user(session, token)
         if user is None:
