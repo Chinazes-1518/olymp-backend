@@ -16,7 +16,7 @@ async def lifespan(app: FastAPI):
     # await routes.analytics.change_values(4, {'task_quantity': 3, 'answer_quantity': 5, 'time_per_task': {'123456': 180}})
 
     # print('Adding tasks from json')
-    # name = 'Алгебра и арифметика'
+    # name = 'Геометрия'
     # with open(f'misc/{name}.json', encoding='utf8') as f:
     #     data = json.load(f)
     # for record in data[:50]:
