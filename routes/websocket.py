@@ -102,7 +102,6 @@ async def websocket_endpoint(websocket: WebSocket):
                     level_start = int(data.get('level_start', 0))
                     level_end = int(data.get('level_end', 10))
                     subcategory = data.get('subcategory', None)
-                    condition = data.get('condition', None)
                     category = data.get('category', None)
                     count = int(data['count'])
 
@@ -116,8 +115,6 @@ async def websocket_endpoint(websocket: WebSocket):
                         tasks = tasks.where(cast(
                             database.Tasks.subcategory,
                             ARRAY(String)).op('&&')(subcategories))
-                    if condition is not None:
-                        tasks = tasks.where(database.Tasks.condition.icontains(condition))
                     if category is not None:
                         tasks = tasks.where(database.Tasks.category == category)
                     if count is not None and count > 0:
