@@ -8,6 +8,7 @@ import database
 import utils
 from sqlalchemy.dialects.postgresql import ARRAY
 from fastapi.security import APIKeyHeader
+from . import analytics
 
 API_Key_Header = APIKeyHeader(name='Authorization', auto_error=True)
 
@@ -70,7 +71,7 @@ async def send_to_frontend(condition: Optional[str] = None,
 
 @router.get('/check_answer')
 async def check_answer(answer: Annotated[str, Query],
-                       id: Annotated[int, Query], token: str=Depends(API_Key_Header)) -> JSONResponse:
+                       id: Annotated[int, Query], time_per_task: Annotated[int, Query()], token: str=Depends(API_Key_Header)) -> JSONResponse:
     async with database.sessions.begin() as session:
         user = await utils.token_to_user(session, token)
         if user is None:
@@ -80,13 +81,18 @@ async def check_answer(answer: Annotated[str, Query],
         if b is None:
             raise HTTPException(403, {"error": "Задачи не существует"})
         get_answer = utils.gigachat_check_answer(answer, str(b.condition), str(b.answer))
-        return utils.json_response({'Correct': get_answer.lower() == 'да'})
+        if get_answer.lower() == 'да':
+            await analytics.change_values(user.id, {'task_quantity': 1, 'answer_quantity': 1, 'time_per_task': {time_per_task}})
+            return utils.json_response({'Correct': get_answer.lower() == 'да'})
+        else:
+            await analytics.change_values(user.id,{'task_quantity': 0, 'answer_quantity': 1})
+            return utils.json_response({'Correct': get_answer.lower() == 'да'})
 
 
 
 @router.get('/check_answer_and_solution')
 async def check_answer(answer: Annotated[str, Query], solution: Optional[str],
-                       id: Annotated[int, Query], token: str=Depends(API_Key_Header)) -> JSONResponse:
+                       id: Annotated[int, Query], time_per_task: Annotated[int, Query], token: str=Depends(API_Key_Header)) -> JSONResponse:
     async with database.sessions.begin() as session:
         user = await utils.token_to_user(session, token)
         if user is None:
@@ -98,8 +104,10 @@ async def check_answer(answer: Annotated[str, Query], solution: Optional[str],
             return utils.json_response({'Correct': get_answer.lower() == 'да'})
         get_answer = utils.gigachat_check_training_answer(answer, solution, b.condition, b.answer, b.solution)
         if get_answer.lower() == 'да':
+            await analytics.change_values(user.id,{'task_quantity': 1, 'answer_quantity': 1, 'time_per_task': {time_per_task}})
             return utils.json_response({'correct': True})
         else:
+            await analytics.change_values(user.id,{'task_quantity': 0, 'answer_quantity': 1})
             return utils.json_response({'correct': False, 'explanation': get_answer})
 
 
@@ -135,3 +143,5 @@ async def get_subcategories(category_id: Annotated[int, Query]):
         b = request.scalars().all()
         subcategories_data = [{'id': item.id, 'name': item.name} for item in b]
         return utils.json_response({'subcategories': subcategories_data})
+
+
