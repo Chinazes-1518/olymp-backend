@@ -2,7 +2,7 @@ from re import sub
 from fastapi import APIRouter, HTTPException, Query, Header
 from fastapi.params import Depends
 from fastapi.responses import JSONResponse
-from sqlalchemy import select, and_, String, cast, Integer
+from sqlalchemy import select, and_, String, cast, Integer, func
 from typing import Annotated, Optional, Union, List
 import database
 import utils
@@ -24,6 +24,8 @@ async def send_to_frontend(condition: Optional[str] = None,
                            count: Optional[int] = 0) -> JSONResponse:
     async with database.sessions.begin() as session:
         tasks = select(database.Tasks)
+        if count is not None and count > 0:
+            tasks = tasks.order_by(func.random())
         tasks = tasks.where(and_(
             database.Tasks.level >= level_start,
             database.Tasks.level <= level_end,
