@@ -22,6 +22,9 @@ def replace_links(s):
 
 
 for d in data:
+    d['condition'] = d['condition'].replace('https://problems.ru/https://problems.ru', 'https://problems.ru')
+    d['solution'] = d['solution'].replace('https://problems.ru/https://problems.ru', 'https://problems.ru')
+    d['answer'] = d['answer'].replace('https://problems.ru/https://problems.ru', 'https://problems.ru')
     links |= set(map(int, pattern.findall(d['condition'])))
     links |= set(map(int, pattern.findall(d['solution'])))
     links |= set(map(int, pattern.findall(d['answer'])))
@@ -35,7 +38,7 @@ with open(name + '.json', 'w', encoding='utf8') as f:
 
 for i, id in enumerate(links):
     url = f'https://problems.ru/show_document.php?id={id}'
-    print(f'downloading document {url} {i}/{len(links)}')
+    print(f'downloading document {url} {i + 1}/{len(links)}')
     if os.path.isfile(f'documents/{id}.gif'):
         continue
     r = requests.get(url)
