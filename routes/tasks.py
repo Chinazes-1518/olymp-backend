@@ -52,7 +52,7 @@ async def send_to_frontend(condition: Optional[str] = None,
             'answer_type': item.answer_type,
             'answer': item.answer
         } for item in tasks2]
-        if condition and condition.isalpha():
+        if condition and condition.isnumeric():
             item = (await session.execute(select(database.Tasks).where(database.Tasks.id == int(condition)))).scalar_one_or_none()
             if item is not None:
                 tasks_data.insert(0, {
