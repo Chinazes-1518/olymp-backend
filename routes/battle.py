@@ -1,13 +1,15 @@
 from __future__ import annotations
 from asyncio import Task
 
-from fastapi import APIRouter, HTTPException, WebSocket, Header
+from fastapi import APIRouter, HTTPException, WebSocket, Header, Depends
+from fastapi.security import APIKeyHeader
+
 from database.database import Tasks
 from utils import json_response, token_to_user, user_by_id
 import database
 from typing import Annotated
 
-
+API_Key_Header = APIKeyHeader(name='Authorization', auto_error=True)
 class PlayerStats:
     def __init__(self) -> None:
         self.answers = {}
@@ -100,7 +102,7 @@ battle_manager = BattleManager()
 
 
 @router.get('/rooms')
-async def get_rooms(token: Annotated[str, Header(alias="Authorization")]):
+async def get_rooms(token: str=Depends(API_Key_Header)):
     async with database.sessions.begin() as session:
         if (await token_to_user(session, token)) is None:
             raise HTTPException(403, {"error": "Токен недействителен"})
@@ -117,8 +119,8 @@ async def get_rooms(token: Annotated[str, Header(alias="Authorization")]):
 
 
 @router.get('/room')
-async def get_room(
-        token: Annotated[str, Header(alias="Authorization")], id: int):
+async def get_room(id: int,
+        token: str=Depends(API_Key_Header)):
     async with database.sessions.begin() as session:
         if (await token_to_user(session, token)) is None:
             raise HTTPException(403, {"error": "Токен недействителен"})
