@@ -17,7 +17,7 @@ async def lifespan(app: FastAPI):
 
     if 0:
         print('Adding tasks from json')
-        name = 'Геометрия'
+        name = 'Математический анализ'
         with open(f'misc/{name}.json', encoding='utf8') as f:
             data = json.load(f)
         for record in data:

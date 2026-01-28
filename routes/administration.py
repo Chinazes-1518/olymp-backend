@@ -106,5 +106,9 @@ async def import_tasks_to_db(data):
                 subcat_id.append(cat.id)
         data['category'] = cat_id
         data['subcategory'] = subcat_id
+        if (await session.execute(select(database.Tasks).where(database.Tasks.id == int(data['id'])))).scalar_one_or_none() != None:
+            print(f'task {data["id"]} already exists')
+            await session.commit()
+            return
         await session.execute(insert(database.Tasks), data)
         await session.commit()
