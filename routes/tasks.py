@@ -21,11 +21,10 @@ async def send_to_frontend(condition: Optional[str] = None,
                            level_end: Optional[int] = 10,
                            category: Optional[int] = None,
                            subcategory: Optional[str] = None,
-                           count: Optional[int] = 0) -> JSONResponse:
+                           count: Optional[int] = 0,
+                           random_tasks : bool = False) -> JSONResponse:
     async with database.sessions.begin() as session:
         tasks = select(database.Tasks)
-        if count is not None and count > 0:
-            tasks = tasks.order_by(func.random())
         tasks = tasks.where(and_(
             database.Tasks.level >= level_start,
             database.Tasks.level <= level_end,
@@ -39,6 +38,10 @@ async def send_to_frontend(condition: Optional[str] = None,
             tasks = tasks.where(database.Tasks.condition.icontains(condition))
         if category is not None:
             tasks = tasks.where(database.Tasks.category == category)
+        if random_tasks:
+            tasks = tasks.order_by(func.random())
+        else:
+            tasks = tasks.order_by(database.Tasks.id)
         if count is not None and count > 0:
             tasks = tasks.limit(count)
 
