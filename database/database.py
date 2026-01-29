@@ -18,7 +18,7 @@ class Users(MainBase):
     points: Mapped[int]
     name: Mapped[str]
     surname: Mapped[str]
-
+    status: Mapped[Optional[str]] = mapped_column(String, default=None)  # training / battle / None
 
 
 class Categories(MainBase):
@@ -47,7 +47,6 @@ class Tasks(MainBase):
     answer_type: Mapped[str]
 
 
-
 class BattleHistory(MainBase):
     __tablename__ = 'battle_history'
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -66,8 +65,3 @@ class Analytics(MainBase):
     date: Mapped[datetime]
     data: Mapped[dict] = mapped_column(JSON)
     userid: Mapped[int] = mapped_column(Integer, ForeignKey(Users.id))
-
-
-
-
-
