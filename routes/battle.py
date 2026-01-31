@@ -35,6 +35,9 @@ class Room:
         self.player_2_stats = PlayerStats()  # other
         self.status = "waiting"
         self.timer_task: Task | None = None
+        self.category: int | None = None
+        self.level_start: int | None = None
+        self.level_end: int | None = None
 
     def json(self) -> dict:
         return {
@@ -42,6 +45,12 @@ class Room:
             'other': self.other,
             'id': self.id,
             'name': self.name,
+            'time_limit': self.time_limit,
+            'status': self.status,
+            'count': len(self.task_data),
+            'category': self.category,
+            'level_start': self.level_start,
+            'level_end': self.level_end,
             # 'game_state': self.game_state.to_dict() if self.game_state else None,
             # "time_limit": self.time_limit,
             # "player1_answers": self.player1_answers,

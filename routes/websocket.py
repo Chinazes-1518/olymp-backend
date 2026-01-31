@@ -80,6 +80,11 @@ async def websocket_endpoint(websocket: WebSocket):
 
                 if current_room is None:
                     current_room = battle_manager.get_room_by_user(user_id)
+                    if current_room is not None:
+                        if current_room.host == user_id:
+                            current_room.host_ws = websocket
+                        elif current_room.other == user_id:
+                            current_room.other_ws = websocket
 
                 if cmd == 'create_room':
                     if not verify_params(data, ['name']):
@@ -104,6 +109,11 @@ async def websocket_endpoint(websocket: WebSocket):
                     subcategory = data.get('subcategory', None)
                     category = data.get('category', None)
                     count = int(data['count'])
+
+                    current_room.category = category
+                    current_room.time_limit = int(data['time_limit'])
+                    current_room.level_start = level_start
+                    current_room.level_end = level_end
 
                     tasks = select(database.Tasks).order_by(func.random())
                     tasks = tasks.where(and_(
@@ -230,8 +240,8 @@ async def websocket_endpoint(websocket: WebSocket):
                     #     })
                     #     continue
 
-                    current_room.task_data = tasks
-                    current_room.time_limit = int(data['time_limit'])
+                    # current_room.task_data = tasks
+                    # current_room.time_limit = int(data['time_limit'])
 
                     await current_room.broadcast({
                         'event': 'countdown_started',
