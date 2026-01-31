@@ -22,7 +22,7 @@ async def get_status_training_begin(token: str=Depends(API_Key_Header)):
         await session.commit()
 
 @router.get('/status_training_end')
-async def get_status_training_begin(token: str=Depends(API_Key_Header)):
+async def get_status_training_end(token: str=Depends(API_Key_Header)):
     async with database.sessions.begin() as session:
         user = await utils.token_to_user(session, token)
         if user is None:
