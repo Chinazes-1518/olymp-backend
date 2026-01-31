@@ -215,7 +215,7 @@ async def websocket_endpoint(websocket: WebSocket):
                         current_room = None
 
                         await websocket.send_json({
-                            'event': 'leave_succesful',
+                            'event': 'leave_successful',
                         })
                     else:
                         await ws_error(websocket, 'not in a room')
