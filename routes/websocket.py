@@ -139,18 +139,6 @@ async def websocket_endpoint(websocket: WebSocket):
                     current_room.task_data = list(tasks2)
                     print(current_room.task_data)
 
-                    # tasks = list((await session.execute(select(Tasks).where(
-                    #     and_(
-                    #         Tasks.level >= int(data['diff_start']),
-                    #         Tasks.level <= int(data['diff_end']),
-                    #         Tasks.category == data['cat'],
-                    #         cast(
-                    #             Tasks.subcategory,
-                    #             ARRAY(String)).op('&&')(
-                    #             data['subcat'])
-                    #     )
-                    # ).order_by(func.random()).limit(int(data['count'])))).scalars().all())
-
                     await websocket.send_json({
                         'event': 'your_room_created',
                         'room_id': room_id,
