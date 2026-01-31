@@ -191,7 +191,7 @@ async def websocket_endpoint(websocket: WebSocket):
                     })
 
                     await websocket.send_json({
-                        'event': 'join_succesful'
+                        'event': 'join_successful'
                     })
                 elif cmd == 'leave_room':
                     if current_room:
