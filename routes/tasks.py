@@ -22,7 +22,7 @@ async def send_to_frontend(condition: Optional[str] = None,
                            category: Optional[int] = None,
                            subcategory: Optional[str] = None,
                            count: Optional[int] = 0,
-                           random_tasks : bool = False) -> JSONResponse:
+                           random_tasks: bool = False) -> JSONResponse:
     async with database.sessions.begin() as session:
         tasks = select(database.Tasks)
         tasks = tasks.where(and_(
@@ -108,7 +108,7 @@ async def check_answer(answer: Annotated[str, Query], solution: Optional[str],
             return utils.json_response({'correct': get_answer.lower() == 'да'})
         get_answer = utils.gigachat_check_training_answer(answer, solution, b.condition, b.answer, b.solution)
         if get_answer.lower() == 'да':
-            await analytics.change_values(user.id,{'task_quantity': 1, 'answer_quantity': 1, 'time_per_task': {time_per_task}})
+            await analytics.change_values(user.id,{'task_quantity': 1, 'answer_quantity': 1, 'time_per_task': {id: time_per_task}})
             return utils.json_response({'correct': True})
         else:
             await analytics.change_values(user.id,{'task_quantity': 0, 'answer_quantity': 1})

@@ -80,14 +80,14 @@ async def websocket_endpoint(websocket: WebSocket):
 
                 if current_room is None:
                     current_room = battle_manager.get_room_by_user(user_id)
-                    print(user_id, 'dbg 1')
+                    # print(user_id, 'dbg 1')
                     if current_room is not None:
-                        print(user_id, 'dbg 2')
+                        # print(user_id, 'dbg 2')
                         if current_room.host == user_id:
-                            print(user_id, 'dbg 3')
+                            # print(user_id, 'dbg 3')
                             current_room.host_ws = websocket
                         elif current_room.other == user_id:
-                            print(user_id, 'dbg 4')
+                            # print(user_id, 'dbg 4')
                             current_room.other_ws = websocket
 
                 if cmd == 'create_room':
