@@ -19,6 +19,7 @@ class Users(MainBase):
     name: Mapped[str]
     surname: Mapped[str]
     status: Mapped[Optional[str]] = mapped_column(String, default=None)  # training / battle / None
+    current_training: Mapped[Optional[dict]] = mapped_column(JSON, default=None)
 
 
 class Categories(MainBase):
