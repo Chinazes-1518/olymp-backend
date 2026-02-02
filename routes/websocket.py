@@ -111,7 +111,8 @@ async def websocket_endpoint(websocket: WebSocket):
                     level_start = int(data.get('level_start', 0))
                     level_end = int(data.get('level_end', 10))
                     subcategory = data.get('subcategory', None)
-                    category = data.get('category', None)
+                    # category = data.get('category', None)
+                    category = int(data['category']) if 'category' in data else None
                     count = int(data['count'])
 
                     current_room.category = category
@@ -119,24 +120,26 @@ async def websocket_endpoint(websocket: WebSocket):
                     current_room.level_start = level_start
                     current_room.level_end = level_end
 
-                    tasks = select(database.Tasks).order_by(func.random())
-                    tasks = tasks.where(and_(
-                        database.Tasks.level >= level_start,
-                        database.Tasks.level <= level_end,
-                    ))
-                    if subcategory:
-                        subcategories = subcategory.strip().split(',')
-                        tasks = tasks.where(cast(
-                            database.Tasks.subcategory,
-                            ARRAY(String)).op('&&')(subcategories))
-                    if category is not None:
-                        tasks = tasks.where(database.Tasks.category == category)
-                    if count is not None and count > 0:
-                        tasks = tasks.limit(count)
+                    # tasks = select(database.Tasks).order_by(func.random())
+                    # tasks = tasks.where(and_(
+                    #     database.Tasks.level >= level_start,
+                    #     database.Tasks.level <= level_end,
+                    # ))
+                    # if subcategory:
+                    #     subcategories = subcategory.strip().split(',')
+                    #     tasks = tasks.where(cast(
+                    #         database.Tasks.subcategory,
+                    #         ARRAY(String)).op('&&')(subcategories))
+                    # if category is not None:
+                    #     tasks = tasks.where(database.Tasks.category == category)
+                    # if count is not None and count > 0:
+                    #     tasks = tasks.limit(count)
 
-                    tasks2 = (await session.execute(tasks)).scalars().all()
+                    # tasks2 = (await session.execute(tasks)).scalars().all()
 
-                    current_room.task_data = list(tasks2)
+                    tasks_data = await utils.filter_tasks(session, level_start, level_end, subcategory, None, category, True, count)
+
+                    current_room.task_data = tasks_data
                     print(current_room.task_data)
 
                     await websocket.send_json({

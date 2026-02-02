@@ -8,6 +8,7 @@ import database
 import utils
 from sqlalchemy.dialects.postgresql import ARRAY
 from fastapi.security import APIKeyHeader
+import json
 from . import analytics
 
 API_Key_Header = APIKeyHeader(name='Authorization', auto_error=True)
@@ -24,53 +25,30 @@ async def send_to_frontend(condition: Optional[str] = None,
                            count: Optional[int] = 0,
                            random_tasks: bool = False) -> JSONResponse:
     async with database.sessions.begin() as session:
-        tasks = select(database.Tasks)
-        tasks = tasks.where(and_(
-            database.Tasks.level >= level_start,
-            database.Tasks.level <= level_end,
-        ))
-        if subcategory:
-            subcategories = list(map(int, subcategory.strip().split(',')))
-            tasks = tasks.where(cast(
-                database.Tasks.subcategory,
-                ARRAY(Integer)).op('&&')(subcategories))
-        if condition is not None:
-            tasks = tasks.where(database.Tasks.condition.icontains(condition))
-        if category is not None:
-            tasks = tasks.where(database.Tasks.category == category)
-        if random_tasks:
-            tasks = tasks.order_by(func.random())
-        else:
-            tasks = tasks.order_by(database.Tasks.id)
-        if count is not None and count > 0:
-            tasks = tasks.limit(count)
+        tasks_data = await utils.filter_tasks(session, level_start or 0, level_end or 10, subcategory, condition, category, random_tasks, count or 0)
+        return utils.json_response({'tasks': tasks_data})
 
-        tasks2 = (await session.execute(tasks)).scalars().all()
-        tasks_data = [{
-            'id': item.id,
-            'level': item.level,
-            'category': item.category,
-            'subcategory': item.subcategory,
-            'condition': item.condition,
-            'solution': item.solution,
-            'source': item.source,
-            'answer_type': item.answer_type,
-            'answer': item.answer
-        } for item in tasks2]
-        if condition and condition.isnumeric():
-            item = (await session.execute(select(database.Tasks).where(database.Tasks.id == int(condition)))).scalar_one_or_none()
-            if item is not None:
-                tasks_data.insert(0, {
-                    'id': item.id,
-                    'level': item.level,
-                    'category': item.category,
-                    'subcategory': item.subcategory,
-                    'condition': item.condition,
-                    'solution': item.solution,
-                    'source': item.source,
-                    'answer_type': item.answer_type,
-                    'answer': item.answer
-                })
+
+@router.get('/get_training_tasks')
+async def send_to_frontend_training(condition: Optional[str] = None,
+                           level_start: Optional[int] = 0,
+                           level_end: Optional[int] = 10,
+                           category: Optional[int] = None,
+                           subcategory: Optional[str] = None,
+                           count: Optional[int] = 0,
+                           random_tasks: bool = False,
+                           token: str=Depends(API_Key_Header)) -> JSONResponse:
+    async with database.sessions.begin() as session:
+        user = await utils.token_to_user(session, token)
+        if user is None:
+            raise HTTPException(403, {"error": "Токен не существует"})
+        stats = (await session.execute(select(database.Analytics).where(database.Analytics.userid == user.id))).scalars().all()
+        solved = set()
+        for el in stats:
+            if 'time_per_task' in el.data:
+                solved |= set(map(int, el.data['time_per_task'].keys()))
+        # print(solved)
+        tasks_data = await utils.filter_tasks(session, level_start or 0, level_end or 10, subcategory, condition, category, random_tasks, count or 0, list(solved))
         return utils.json_response({'tasks': tasks_data})
 
 
@@ -93,9 +71,8 @@ async def check_answer(answer: Annotated[str, Query],
         return utils.json_response({'correct': get_answer.lower() == 'да'})
 
 
-
 @router.get('/check_answer_and_solution')
-async def check_answer(answer: Annotated[str, Query], solution: Optional[str],
+async def check_answer_and_solution(answer: Annotated[str, Query], solution: Optional[str],
                        id: Annotated[int, Query], time_per_task: Annotated[int, Query], token: str=Depends(API_Key_Header)) -> JSONResponse:
     async with database.sessions.begin() as session:
         user = await utils.token_to_user(session, token)
@@ -113,7 +90,6 @@ async def check_answer(answer: Annotated[str, Query], solution: Optional[str],
         else:
             await analytics.change_values(user.id,{'task_quantity': 0, 'answer_quantity': 1})
             return utils.json_response({'correct': False, 'explanation': get_answer})
-
 
 
 @router.get('/task_id')
@@ -150,5 +126,3 @@ async def get_subcategories(category_id: Optional[int] = None):
         b = request.scalars().all()
         subcategories_data = [{'id': item.id, 'name': item.name} for item in b]
         return utils.json_response({'subcategories': subcategories_data})
-
-
