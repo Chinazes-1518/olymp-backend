@@ -239,9 +239,7 @@ async def websocket_endpoint(websocket: WebSocket):
                     # current_room.time_limit = int(data['time_limit'])
 
                     await session.execute(update(database.Users).where(database.Users.id == current_room.host).values(status = 'battle'))
-                    await session.commit()
                     await session.execute(update(database.Users).where(database.Users.id == current_room.other).values(status = 'battle'))
-                    await session.commit()
 
                     await current_room.broadcast({
                         'event': 'tasks_selected',
