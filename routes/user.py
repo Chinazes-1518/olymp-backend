@@ -1,13 +1,11 @@
 from fastapi import APIRouter, HTTPException, Query, Header
 from fastapi.params import Depends
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel
 from sqlalchemy import update
 import database
 import utils
 from fastapi.security import APIKeyHeader
-from typing import Annotated, Optional
-import base64
-import json
 
 API_Key_Header = APIKeyHeader(name='Authorization', auto_error=True)
 
@@ -52,11 +50,15 @@ async def get_training(token: str = Depends(API_Key_Header)) -> JSONResponse:
         return utils.json_response({'training': user.current_training})
 
 
-@router.get('/set_training')
-async def set_training(training: Annotated[str, Query()], token: str = Depends(API_Key_Header)) -> JSONResponse:
+class TrainingModel(BaseModel):
+    training: dict | None
+
+
+@router.post('/set_training')
+async def set_training(info: TrainingModel, token: str = Depends(API_Key_Header)) -> JSONResponse:
     async with database.sessions.begin() as session:
         user = await utils.token_to_user(session, token)
         if user is None:
             raise HTTPException(403, {'error': "Пользователь не найден"})
-        await session.execute(update(database.Users).where(database.Users.id == user.id).values(current_training = json.loads(base64.b64decode(training)) if training != 'null' else None))
-
+        # print(info.training)
+        await session.execute(update(database.Users).where(database.Users.id == user.id).values(current_training=info.training))
