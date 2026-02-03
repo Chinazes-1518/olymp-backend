@@ -1,5 +1,5 @@
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
-from sqlalchemy import select, and_, cast, String, func
+from sqlalchemy import select, and_, cast, String, func, update
 from sqlalchemy.dialects.postgresql import ARRAY
 import asyncio
 import json
@@ -237,6 +237,11 @@ async def websocket_endpoint(websocket: WebSocket):
 
                     # current_room.task_data = tasks
                     # current_room.time_limit = int(data['time_limit'])
+
+                    await session.execute(update(database.Users).where(database.Users.id == current_room.host).values(status = 'battle'))
+                    await session.commit()
+                    await session.execute(update(database.Users).where(database.Users.id == current_room.other).values(status = 'battle'))
+                    await session.commit()
 
                     await current_room.broadcast({
                         'event': 'tasks_selected',
