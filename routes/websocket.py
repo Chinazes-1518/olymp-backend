@@ -239,27 +239,15 @@ async def websocket_endpoint(websocket: WebSocket):
                     # current_room.time_limit = int(data['time_limit'])
 
                     await current_room.broadcast({
-                        'event': 'countdown_started',
-                        'left_seconds': 5,
-                    })
-
-                    for i in range(5, 0, -1):
-                        await current_room.broadcast({
-                            'event': 'countdown',
-                            'left_seconds': i,
-                        })
-                        await asyncio.sleep(1)
-
-                    await current_room.broadcast({
                         'event': 'tasks_selected',
                         'tasks': [
                             {
-                                'id': x.id,
-                                'level': x.level,
-                                'subcategory': x.subcategory,
-                                'condition': x.condition,
-                                'source': x.source,
-                                'answer_type': x.answer_type,
+                                'id': x['id'],
+                                'level': x['level'],
+                                'subcategory': x['subcategory'],
+                                'condition': x['condition'],
+                                'source': x['source'],
+                                'answer_type': x['answer_type'],
                             }
                             for x in current_room.task_data
                         ]
@@ -301,9 +289,9 @@ async def websocket_endpoint(websocket: WebSocket):
                             current_room.player_2_stats.solved.append(task.id)
                             current_room.player_2_stats.points += utils.level_to_points(
                                 task.level)
-                        await websocket.send({'correct': True, 'points': utils.level_to_points(task.level)})
+                        await websocket.send({'event': 'check_result', 'correct': True, 'points': utils.level_to_points(task.level)})
                     else:
-                        await websocket.send({'correct': False})
+                        await websocket.send({'event': 'check_result', 'correct': False})
 
                     current_room.player_1_stats.answers |= {task.id: data['answer']}
                 elif cmd == 'send_to_chat':

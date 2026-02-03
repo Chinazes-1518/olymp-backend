@@ -52,6 +52,24 @@ async def send_to_frontend_training(condition: Optional[str] = None,
         return utils.json_response({'tasks': tasks_data})
 
 
+@router.get('/tasks_by_id')
+async def get_tasks_by_id(ids: Annotated[str, Query]):
+    async with database.sessions.begin() as session:
+        ids_int = sorted(set(map(int, ids.split(','))))
+        tasks = (await session.execute(select(database.Tasks).where(database.Tasks.id.in_(ids_int)))).scalars().all()
+        return utils.json_response({'tasks': [{
+            'id': item.id,
+            'level': item.level,
+            'category': item.category,
+            'subcategory': item.subcategory,
+            'condition': item.condition,
+            'solution': item.solution,
+            'source': item.source,
+            'answer_type': item.answer_type,
+            'answer': item.answer
+        } for item in tasks]})
+
+
 @router.get('/check_answer')
 async def check_answer(answer: Annotated[str, Query],
                        id: Annotated[int, Query], time_per_task: Annotated[int, Query()], token: str=Depends(API_Key_Header)) -> JSONResponse:
