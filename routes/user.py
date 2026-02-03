@@ -60,5 +60,5 @@ async def set_training(info: TrainingModel, token: str = Depends(API_Key_Header)
         user = await utils.token_to_user(session, token)
         if user is None:
             raise HTTPException(403, {'error': "Пользователь не найден"})
-        # print(info.training)
+        print(info.training)
         await session.execute(update(database.Users).where(database.Users.id == user.id).values(current_training=info.training))

@@ -238,8 +238,8 @@ async def websocket_endpoint(websocket: WebSocket):
                     # current_room.task_data = tasks
                     # current_room.time_limit = int(data['time_limit'])
 
-                    await session.execute(update(database.Users).where(database.Users.id == current_room.host).values(status = 'battle'))
-                    await session.execute(update(database.Users).where(database.Users.id == current_room.other).values(status = 'battle'))
+                    await session.execute(update(database.Users).where(database.Users.id == current_room.host).values(status='battle'))
+                    await session.execute(update(database.Users).where(database.Users.id == current_room.other).values(status='battle'))
 
                     await current_room.broadcast({
                         'event': 'tasks_selected',
@@ -314,42 +314,41 @@ async def websocket_endpoint(websocket: WebSocket):
                         'time': time.strftime("%H:%M:%S")
                     })
                 elif cmd == 'get_game_state':
-                    # room = battle_manager.get_room_by_user(user_id)
-                    # if room is None or room.game_state is None:
-                    #     await websocket.send_json({
-                    #         'event': 'состояние игры',
-                    #         'статус': 'нет активной игры',
-                    #         'в_комнате': room is not None
-                    #     })
-                    #     continue
-
-                    # await websocket.send_json({
-                    #     'event': 'состояние игры',
-                    #     'статус': room.game_state.status,
-                    #     'номер_текущей_задачи': room.game_state.current_task,
-                    #     'всего_задач': len(room.game_state.task_ids),
-                    #     'время_на_задачу': room.game_state.time_limit,
-                    #     'ответы_игрока1': room.game_state.player1_answers,
-                    #     'ответы_игрока2': room.game_state.player2_answers,
-                    #     'очки_игрока1': room.game_state.player1_points,
-                    #     'очки_игрока2': room.game_state.player2_points
-                    # })
                     if current_room is None:
                         await ws_error(websocket, 'Not in a room')
                         continue
-                    res = {'status': current_room.status}
+                    res = current_room.json()
                     if user_id == current_room.host:
+                        other_user = await utils.user_by_id(session, current_room.other)
                         res |= {
                             'answers': current_room.player_1_stats.answers,
                             'points': current_room.player_1_stats.points,
-                            'solved': current_room.player_1_stats.solved
+                            'solved': current_room.player_1_stats.solved,
+                            'other_points': current_room.player_2_stats.points,
+                            'other_name': f'{user.name} {user.surname[0]}.'
                         }
                     else:
+                        other_user = await utils.user_by_id(session, current_room.host)
                         res |= {
                             'answers': current_room.player_2_stats.answers,
                             'points': current_room.player_2_stats.points,
-                            'solved': current_room.player_2_stats.solved
+                            'solved': current_room.player_2_stats.solved,
+                            'other_points': current_room.player_1_stats.points
                         }
+
+                    res['tasks'] = [
+                        {
+                            'id': x['id'],
+                            'level': x['level'],
+                            'subcategory': x['subcategory'],
+                            'condition': x['condition'],
+                            'source': x['source'],
+                            'answer_type': x['answer_type'],
+                        }
+                        for x in current_room.task_data
+                    ]
+                    res['event'] = 'game_state'
+                    res['other_name'] = f'{other_user.name} {other_user.surname[0]}.'
                     await websocket.send_json(res)
                 elif cmd == 'finish':
                     if not verify_params(data, ['times']):
@@ -422,5 +421,5 @@ async def websocket_endpoint(websocket: WebSocket):
         except json.JSONDecodeError:
             await ws_error(websocket, 'Incorrect JSON data')
         except Exception as e:
-            print(f"Ошибка: {e}")
+            print(f"Ошибка: {e.with_traceback()}")
             await ws_error(websocket, f'Internal server error: {str(e)}')
