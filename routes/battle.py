@@ -38,6 +38,9 @@ class Room:
         self.category: int | None = None
         self.level_start: int | None = None
         self.level_end: int | None = None
+        self.current_task_index = 0
+        self.player_answers_received = {}
+        self.task_advance_lock = None
 
     def json(self) -> dict:
         return {

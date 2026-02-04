@@ -4,13 +4,13 @@ from sqlalchemy.dialects.postgresql import ARRAY
 import asyncio
 import json
 import time
+from typing import Dict, Set, List, Optional
 
 from utils import token_to_user
 import utils
 from .battle import battle_manager, Room
 import database
 from database import Tasks
-
 
 router = APIRouter()
 
@@ -54,6 +54,160 @@ async def ws_error(websocket: WebSocket, msg: str):
     })
 
 
+async def advance_to_next_task(room: Room, session) -> None:
+    async with room.task_advance_lock:
+        room.current_task_index += 1
+
+        if room.current_task_index >= len(room.task_data):
+            await room.broadcast({
+                'event': 'all_tasks_completed',
+                'message': 'Все задачи пройдены!'
+            })
+            if hasattr(room, 'timer_task') and room.timer_task:
+                room.timer_task.cancel()
+                room.status = 'finishing'
+                await room.broadcast({'event': 'game_finished'})
+            return
+        next_task_data = room.task_data[room.current_task_index]
+
+        task = (await session.execute(
+            select(database.Tasks).where(database.Tasks.id == next_task_data['id'])
+        )).scalar_one_or_none()
+
+        if not task:
+            await room.broadcast({
+                'event': 'error',
+                'message': 'Задача не найдена'
+            })
+            return
+
+        room.player_answers_received = {
+            room.host: False,
+            room.other: False
+        }
+
+        await room.broadcast({
+            'event': 'next_task_available',
+            'task': {
+                'id': task.id,
+                'level': task.level,
+                'subcategory': task.subcategory,
+                'condition': task.condition,
+                'source': task.source,
+                'answer_type': task.answer_type,
+                'task_index': room.current_task_index,
+                'total_tasks': len(room.task_data)
+            },
+            'task_number': room.current_task_index + 1,
+            'total_tasks': len(room.task_data),
+            'waiting_for_answers': False
+        })
+
+        print(f"Комната {room.id}: Переход к задаче {room.current_task_index + 1}")
+
+
+async def handle_player_answer(room: Room, user_id: int, task_id: int, answer: str,
+                               session, websocket: WebSocket) -> None:
+    try:
+        task = (await session.execute(
+            select(database.Tasks).where(database.Tasks.id == task_id)
+        )).scalar_one_or_none()
+
+        if task is None:
+            await ws_error(websocket, 'Task not found')
+            return
+
+        correct = str(answer).strip() == str(task.answer).strip()
+
+        if user_id == room.host:
+            if task.id in room.player_1_stats.solved:
+                await ws_error(websocket, 'Task already solved')
+                return
+
+            if correct:
+                room.player_1_stats.solved.append(task.id)
+                room.player_1_stats.points += utils.level_to_points(task.level)
+                await websocket.send_json({
+                    'event': 'check_result',
+                    'correct': True,
+                    'points': utils.level_to_points(task.level)
+                })
+
+                if room.other_ws:
+                    await room.other_ws.send_json({
+                        'event': 'other_solved',
+                        'points': room.player_2_stats.points
+                    })
+            else:
+                await websocket.send_json({
+                    'event': 'check_result',
+                    'correct': False
+                })
+
+            room.player_1_stats.answers[task.id] = answer
+
+        else:  # player 2
+            if task.id in room.player_2_stats.solved:
+                await ws_error(websocket, 'Task already solved')
+                return
+
+            if correct:
+                room.player_2_stats.solved.append(task.id)
+                room.player_2_stats.points += utils.level_to_points(task.level)
+                await websocket.send_json({
+                    'event': 'check_result',
+                    'correct': True,
+                    'points': utils.level_to_points(task.level)
+                })
+
+                if room.host_ws:
+                    await room.host_ws.send_json({
+                        'event': 'other_solved',
+                        'points': room.player_1_stats.points
+                    })
+            else:
+                await websocket.send_json({
+                    'event': 'check_result',
+                    'correct': False
+                })
+
+            room.player_2_stats.answers[task.id] = answer
+        room.player_answers_received[user_id] = True
+
+        both_answered = all(room.player_answers_received.values())
+
+        if both_answered:
+            await room.broadcast({
+                'event': 'both_answered',
+                'message': 'Оба игрока ответили. Переход к следующей задаче через 2 секунды...',
+                'task_id': task_id
+            })
+
+            await asyncio.sleep(2)
+
+            await advance_to_next_task(room, session)
+        else:
+            other_player_id = room.other if user_id == room.host else room.host
+            other_player_answered = room.player_answers_received[other_player_id]
+
+            if not other_player_answered:
+                await websocket.send_json({
+                    'event': 'waiting_for_other_player',
+                    'message': 'Ожидаем ответа второго игрока...'
+                })
+
+                other_ws = room.other_ws if user_id == room.host else room.host_ws
+                if other_ws:
+                    await other_ws.send_json({
+                        'event': 'other_player_answered',
+                        'message': 'Первый игрок уже ответил. Вы можете дать ответ.'
+                    })
+
+    except Exception as e:
+        print(f"Ошибка при обработке ответа: {e}")
+        await ws_error(websocket, f'Internal server error: {str(e)}')
+
+
 @router.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
@@ -80,15 +234,21 @@ async def websocket_endpoint(websocket: WebSocket):
 
                 if current_room is None:
                     current_room = battle_manager.get_room_by_user(user_id)
-                    # print(user_id, 'dbg 1')
                     if current_room is not None:
-                        # print(user_id, 'dbg 2')
                         if current_room.host == user_id:
-                            # print(user_id, 'dbg 3')
                             current_room.host_ws = websocket
                         elif current_room.other == user_id:
-                            # print(user_id, 'dbg 4')
                             current_room.other_ws = websocket
+
+                        if not hasattr(current_room, 'player_answers_received'):
+                            current_room.player_answers_received = {
+                                current_room.host: False,
+                                current_room.other: False
+                            }
+                        if not hasattr(current_room, 'task_advance_lock'):
+                            current_room.task_advance_lock = asyncio.Lock()
+                        if not hasattr(current_room, 'current_task_index'):
+                            current_room.current_task_index = 0
 
                 if cmd == 'create_room':
                     if not verify_params(data, ['name']):
@@ -111,7 +271,6 @@ async def websocket_endpoint(websocket: WebSocket):
                     level_start = int(data.get('level_start', 0))
                     level_end = int(data.get('level_end', 10))
                     subcategory = data.get('subcategory', None)
-                    # category = data.get('category', None)
                     category = int(data['category']) if 'category' in data else None
                     count = int(data['count'])
 
@@ -120,27 +279,16 @@ async def websocket_endpoint(websocket: WebSocket):
                     current_room.level_start = level_start
                     current_room.level_end = level_end
 
-                    # tasks = select(database.Tasks).order_by(func.random())
-                    # tasks = tasks.where(and_(
-                    #     database.Tasks.level >= level_start,
-                    #     database.Tasks.level <= level_end,
-                    # ))
-                    # if subcategory:
-                    #     subcategories = subcategory.strip().split(',')
-                    #     tasks = tasks.where(cast(
-                    #         database.Tasks.subcategory,
-                    #         ARRAY(String)).op('&&')(subcategories))
-                    # if category is not None:
-                    #     tasks = tasks.where(database.Tasks.category == category)
-                    # if count is not None and count > 0:
-                    #     tasks = tasks.limit(count)
-
-                    # tasks2 = (await session.execute(tasks)).scalars().all()
-
-                    tasks_data = await utils.filter_tasks(session, level_start, level_end, subcategory, None, category, True, count)
+                    tasks_data = await utils.filter_tasks(session, level_start, level_end, subcategory, None, category,
+                                                          True, count)
 
                     current_room.task_data = tasks_data
-                    print(current_room.task_data)
+                    current_room.current_task_index = 0
+                    current_room.player_answers_received = {
+                        current_room.host: False,
+                        current_room.other: False
+                    }
+                    current_room.task_advance_lock = asyncio.Lock()
 
                     await websocket.send_json({
                         'event': 'your_room_created',
@@ -154,6 +302,7 @@ async def websocket_endpoint(websocket: WebSocket):
                         'name': data['name'],
                         'host_name': f'{user.name} {user.surname[0]}.'
                     })
+
                 elif cmd == 'join_room':
                     if not verify_params(data, ['room_id']):
                         await ws_error(websocket, 'Specify room id')
@@ -175,6 +324,16 @@ async def websocket_endpoint(websocket: WebSocket):
                     battle_manager.user_join_room(user_id, room, websocket)
                     current_room = room
 
+                    if not hasattr(current_room, 'player_answers_received'):
+                        current_room.player_answers_received = {
+                            current_room.host: False,
+                            current_room.other: False
+                        }
+                    if not hasattr(current_room, 'task_advance_lock'):
+                        current_room.task_advance_lock = asyncio.Lock()
+                    if not hasattr(current_room, 'current_task_index'):
+                        current_room.current_task_index = 0
+
                     await room.host_ws.send_json({
                         'event': 'player_joined',
                         'user_id': user_id,
@@ -184,33 +343,7 @@ async def websocket_endpoint(websocket: WebSocket):
                     await websocket.send_json({
                         'event': 'join_successful'
                     })
-                elif cmd == 'leave_room':
-                    if current_room:
-                        if user_id == current_room.host:
-                            await broadcast({
-                                'event': 'room_deleted',
-                                'room_id': current_room.id
-                            })
-                            battle_manager.remove_room(current_room)
-                        else:
-                            current_room.other = None
-                            current_room.other_ws = None
 
-                            await broadcast({
-                                'event': 'player_left',
-                                'room_id': current_room.id,
-                            })
-
-                            if user_id in battle_manager.user_to_room:
-                                del battle_manager.user_to_room[user_id]
-                        current_room = None
-
-                        await websocket.send_json({
-                            'event': 'leave_successful',
-                        })
-                    else:
-                        await ws_error(websocket, 'not in a room')
-                        continue
                 elif cmd == 'start_game':
                     if current_room is None:
                         await ws_error(websocket, 'You are not in a room')
@@ -228,35 +361,36 @@ async def websocket_endpoint(websocket: WebSocket):
                         await ws_error(websocket, 'Room has already been started')
                         continue
 
-                    # if len(tasks) < int(data['count']):
-                    #     await websocket.send_json({
-                    #         'event': 'error',
-                    #         'message': f'Found {len(tasks)} tasks for given criteria'
-                    #     })
-                    #     continue
+                    await session.execute(
+                        update(database.Users).where(database.Users.id == current_room.host).values(status='battle'))
+                    await session.execute(
+                        update(database.Users).where(database.Users.id == current_room.other).values(status='battle'))
 
-                    # current_room.task_data = tasks
-                    # current_room.time_limit = int(data['time_limit'])
-
-                    await session.execute(update(database.Users).where(database.Users.id == current_room.host).values(status='battle'))
-                    await session.execute(update(database.Users).where(database.Users.id == current_room.other).values(status='battle'))
-
-                    await current_room.broadcast({
-                        'event': 'tasks_selected',
-                        'tasks': [
-                            {
-                                'id': x['id'],
-                                'level': x['level'],
-                                'subcategory': x['subcategory'],
-                                'condition': x['condition'],
-                                'source': x['source'],
-                                'answer_type': x['answer_type'],
-                            }
-                            for x in current_room.task_data
-                        ]
-                    })
+                    if current_room.task_data:
+                        first_task = current_room.task_data[0]
+                        await current_room.broadcast({
+                            'event': 'tasks_selected',
+                            'tasks': [
+                                {
+                                    'id': x['id'],
+                                    'level': x['level'],
+                                    'subcategory': x['subcategory'],
+                                    'condition': x['condition'],
+                                    'source': x['source'],
+                                    'answer_type': x['answer_type'],
+                                }
+                                for x in current_room.task_data
+                            ],
+                            'current_task': first_task,
+                            'task_number': 1,
+                            'total_tasks': len(current_room.task_data)
+                        })
+                    else:
+                        await ws_error(websocket, 'No tasks available')
+                        continue
 
                     current_room.timer_task = asyncio.create_task(start_game_timer(current_room))
+
                 elif cmd == 'send_answer':
                     if not verify_params(data, ['answer', 'task_id']):
                         await ws_error(websocket, 'Wrong params')
@@ -265,42 +399,54 @@ async def websocket_endpoint(websocket: WebSocket):
                     if current_room is None or current_room.status != 'started':
                         await ws_error(websocket, 'Not in game')
                         continue
+                    current_task_id = None
+                    if current_room.current_task_index < len(current_room.task_data):
+                        current_task_id = current_room.task_data[current_room.current_task_index]['id']
 
-                    task = (await session.execute(select(database.Tasks).where(database.Tasks.id == int(data['task_id'])))).scalar_one_or_none()
-                    if task is None:
-                        await ws_error(websocket, 'Task not found')
+                    if int(data['task_id']) != current_task_id:
+                        await ws_error(websocket, 'Это не текущая задача')
                         continue
 
-                    correct = str(
-                        data['answer']).strip() == str(
-                        task.answer).strip()
+                    await handle_player_answer(
+                        current_room,
+                        user_id,
+                        int(data['task_id']),
+                        data['answer'],
+                        session,
+                        websocket
+                    )
 
-                    if correct:
-                        if user_id == current_room.host:  # player 1
-                            if task.id in current_room.player_1_stats.solved:
-                                await ws_error(websocket, 'Task already solved')
-                                continue
-                            await websocket.send({'event': 'other_solved', 'points': current_room.player_2_stats.points})
+                elif cmd == 'request_next_task_early':
+                    if current_room is None or current_room.status != 'started':
+                        await ws_error(websocket, 'Not in game')
+                        continue
+
+                    if not current_room.player_answers_received.get(user_id, False):
+                        await ws_error(websocket, 'Сначала ответьте на текущую задачу')
+                        continue
+
+                    other_player_ws = current_room.other_ws if user_id == current_room.host else current_room.host_ws
+                    if other_player_ws:
+                        await other_player_ws.send_json({
+                            'event': 'next_task_requested',
+                            'message': 'Второй игрок хочет перейти к следующей задаче. Вы согласны?'
+                        })
+
+                        await websocket.send_json({
+                            'event': 'next_task_request_sent',
+                            'message': 'Запрос отправлен второму игроку'
+                        })
+
+                elif cmd == 'accept_next_task':
+                    """Подтверждение перехода к следующей задаче"""
+                    if current_room is None or current_room.status != 'started':
+                        await ws_error(websocket, 'Not in game')
+                        continue
 
 
-                            current_room.player_1_stats.solved.append(task.id)
-                            current_room.player_1_stats.points += utils.level_to_points(
-                                task.level)
-                        else:  # player 2
-                            if task.id in current_room.player_2_stats.solved:
-                                await ws_error(websocket, 'Task already solved')
-                                continue
-                            await websocket.send({'event': 'other_solved', 'points': current_room.player_1_stats.points})
+                    await advance_to_next_task(current_room, session)
 
 
-                            current_room.player_2_stats.solved.append(task.id)
-                            current_room.player_2_stats.points += utils.level_to_points(
-                                task.level)
-                        await websocket.send({'event': 'check_result', 'correct': True, 'points': utils.level_to_points(task.level)})
-                    else:
-                        await websocket.send({'event': 'check_result', 'correct': False})
-
-                    current_room.player_1_stats.answers |= {task.id: data['answer']}
                 elif cmd == 'send_to_chat':
                     if not verify_params(data, ['message']):
                         await ws_error(websocket, 'No message specified')
@@ -317,10 +463,25 @@ async def websocket_endpoint(websocket: WebSocket):
                         'message': data['message'],
                         'time': time.strftime("%H:%M:%S")
                     })
+
                 elif cmd == 'get_game_state':
                     if current_room is None:
                         await ws_error(websocket, 'Not in a room')
                         continue
+
+                    current_task = None
+                    if (current_room.current_task_index < len(current_room.task_data) and
+                            current_room.task_data):
+                        task_data = current_room.task_data[current_room.current_task_index]
+                        current_task = {
+                            'id': task_data['id'],
+                            'level': task_data['level'],
+                            'subcategory': task_data['subcategory'],
+                            'condition': task_data['condition'],
+                            'source': task_data['source'],
+                            'answer_type': task_data['answer_type'],
+                        }
+
                     res = current_room.json()
                     if user_id == current_room.host:
                         other_user = await utils.user_by_id(session, current_room.other)
@@ -329,7 +490,11 @@ async def websocket_endpoint(websocket: WebSocket):
                             'points': current_room.player_1_stats.points,
                             'solved': current_room.player_1_stats.solved,
                             'other_points': current_room.player_2_stats.points,
-                            'other_name': f'{user.name} {user.surname[0]}.'
+                            'other_name': f'{user.name} {user.surname[0]}.',
+                            'current_task_index': current_room.current_task_index,
+                            'current_task': current_task,
+                            'player_answered': current_room.player_answers_received.get(user_id, False),
+                            'other_answered': current_room.player_answers_received.get(current_room.other, False)
                         }
                     else:
                         other_user = await utils.user_by_id(session, current_room.host)
@@ -337,7 +502,12 @@ async def websocket_endpoint(websocket: WebSocket):
                             'answers': current_room.player_2_stats.answers,
                             'points': current_room.player_2_stats.points,
                             'solved': current_room.player_2_stats.solved,
-                            'other_points': current_room.player_1_stats.points
+                            'other_points': current_room.player_1_stats.points,
+                            'other_name': f'{other_user.name} {other_user.surname[0]}.',
+                            'current_task_index': current_room.current_task_index,
+                            'current_task': current_task,
+                            'player_answered': current_room.player_answers_received.get(user_id, False),
+                            'other_answered': current_room.player_answers_received.get(current_room.host, False)
                         }
 
                     res['tasks'] = [
@@ -352,8 +522,8 @@ async def websocket_endpoint(websocket: WebSocket):
                         for x in current_room.task_data
                     ]
                     res['event'] = 'game_state'
-                    res['other_name'] = f'{other_user.name} {other_user.surname[0]}.'
                     await websocket.send_json(res)
+
                 elif cmd == 'finish':
                     if not verify_params(data, ['times']):
                         await ws_error(websocket, 'Times not specified')
@@ -380,6 +550,7 @@ async def websocket_endpoint(websocket: WebSocket):
                         current_room.timer_task.cancel()
                         current_room.status = 'finishing'
                         await current_room.broadcast({'event': 'game_finished'})
+
                 elif cmd == 'player_times':
                     if not verify_params(data, ['times']):
                         await ws_error(websocket, 'Times not specified')
@@ -392,16 +563,21 @@ async def websocket_endpoint(websocket: WebSocket):
                     else:
                         current_room.player_2_stats.times = data['times']
                     if current_room.player_1_stats.times is not None and current_room.player_2_stats.times is not None:
-                        score_1_now = (await session.execute(select(database.Users).where(database.Users.id == current_room.host))).scalar_one().points
-                        score_2_now = (await session.execute(select(database.Users).where(database.Users.id == current_room.other))).scalar_one().points
+                        score_1_now = (await session.execute(
+                            select(database.Users).where(database.Users.id == current_room.host))).scalar_one().points
+                        score_2_now = (await session.execute(
+                            select(database.Users).where(database.Users.id == current_room.other))).scalar_one().points
                         total_points = sum([utils.level_to_points(
                             x.level) for x in current_room.task_data])
 
                         score1new, score2new = utils.calculate_elo_rating(
-                            score_1_now, score_2_now, current_room.player_1_stats.points / total_points, current_room.player_2_stats.points / total_points)
+                            score_1_now, score_2_now, current_room.player_1_stats.points / total_points,
+                                                      current_room.player_2_stats.points / total_points)
 
-                        t1 = [v for k, v in current_room.player_1_stats.times.items() if k in current_room.player_1_stats.solved]
-                        t2 = [v for k, v in current_room.player_2_stats.times.items() if k in current_room.player_2_stats.solved]
+                        t1 = [v for k, v in current_room.player_1_stats.times.items() if
+                              k in current_room.player_1_stats.solved]
+                        t2 = [v for k, v in current_room.player_2_stats.times.items() if
+                              k in current_room.player_2_stats.solved]
 
                         await current_room.broadcast({
                             'event': 'scores',
@@ -416,14 +592,21 @@ async def websocket_endpoint(websocket: WebSocket):
                         battle_manager.remove_room(current_room)
                 else:
                     await ws_error(websocket, f'Unknown command: {cmd}')
+
         except WebSocketDisconnect:
-            # if current_room and user_id:
-            #     await handle_player_leave(current_room, user_id)
-            print(f"Игрок {user_id} отключился")
+            if current_room and user_id:
+                if current_room.status == 'started':
+                    await current_room.broadcast({
+                        'event': 'player_disconnected',
+                        'user_id': user_id,
+                        'message': 'Игрок отключился. Игра приостановлена.'
+                    })
+                    current_room.status = 'paused'
+
             connected_websockets.remove(websocket)
             break
         except json.JSONDecodeError:
             await ws_error(websocket, 'Incorrect JSON data')
         except Exception as e:
-            print(f"Ошибка: {e.with_traceback()}")
+            print(f"Ошибка: {e}")
             await ws_error(websocket, f'Internal server error: {str(e)}')
