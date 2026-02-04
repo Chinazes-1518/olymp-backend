@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from fastapi import APIRouter, HTTPException, Query, Header
 from fastapi.params import Depends
 from fastapi.responses import JSONResponse

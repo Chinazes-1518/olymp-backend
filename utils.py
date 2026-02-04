@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from fastapi.responses import JSONResponse
 from fastapi.encoders import jsonable_encoder
 from sqlalchemy import select, insert, update, and_, cast, Integer, func

@@ -280,6 +280,8 @@ async def websocket_endpoint(websocket: WebSocket):
                             if task.id in current_room.player_1_stats.solved:
                                 await ws_error(websocket, 'Task already solved')
                                 continue
+                            await websocket.send({'event': 'other_solved', 'points': current_room.player_2_stats})
+
 
                             current_room.player_1_stats.solved.append(task.id)
                             current_room.player_1_stats.points += utils.level_to_points(
@@ -288,6 +290,8 @@ async def websocket_endpoint(websocket: WebSocket):
                             if task.id in current_room.player_2_stats.solved:
                                 await ws_error(websocket, 'Task already solved')
                                 continue
+                            await websocket.send({'event': 'other_solved', 'points': current_room.player_1_stats})
+
 
                             current_room.player_2_stats.solved.append(task.id)
                             current_room.player_2_stats.points += utils.level_to_points(
