@@ -53,10 +53,7 @@ class BattleHistory(MainBase):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     id1: Mapped[int] = mapped_column(Integer, ForeignKey(Users.id))
     id2: Mapped[int] = mapped_column(Integer, ForeignKey(Users.id))
-    result1: Mapped[int]
-    result2: Mapped[int]
-    solvingtime1: Mapped[list[int]] = Column(ARRAY(Integer))
-    solvingtime2: Mapped[list[int]] = Column(ARRAY(Integer))
+    data: Mapped[dict] = mapped_column(JSON)
     date: Mapped[datetime]
 
 
