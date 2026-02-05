@@ -6,6 +6,7 @@ import json
 import time
 from typing import Dict, Set, List, Optional
 
+from routes import analytics
 from utils import token_to_user
 import utils
 from .battle import battle_manager, Room
@@ -392,7 +393,7 @@ async def websocket_endpoint(websocket: WebSocket):
                     current_room.timer_task = asyncio.create_task(start_game_timer(current_room))
 
                 elif cmd == 'send_answer':
-                    if not verify_params(data, ['answer', 'task_id']):
+                    if not verify_params(data, ['answer', 'time']):
                         await ws_error(websocket, 'Wrong params')
                         continue
 
@@ -510,17 +511,14 @@ async def websocket_endpoint(websocket: WebSocket):
                             'other_answered': current_room.player_answers_received.get(current_room.host, False)
                         }
 
-                    res['tasks'] = [
-                        {
-                            'id': x['id'],
-                            'level': x['level'],
-                            'subcategory': x['subcategory'],
-                            'condition': x['condition'],
-                            'source': x['source'],
-                            'answer_type': x['answer_type'],
-                        }
-                        for x in current_room.task_data
-                    ]
+                    res['task'] = {
+                        'id': current_room.task_data[current_room.current_task]['id'],
+                        'level': current_room.task_data[current_room.current_task]['level'],
+                        'subcategory': current_room.task_data[current_room.current_task]['subcategory'],
+                        'condition': current_room.task_data[current_room.current_task]['condition'],
+                        'source': current_room.task_data[current_room.current_task]['source'],
+                        'answer_type': current_room.task_data[current_room.current_task]['answer_type'],
+                    }
                     res['event'] = 'game_state'
                     await websocket.send_json(res)
 
