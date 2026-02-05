@@ -13,6 +13,7 @@ API_Key_Header = APIKeyHeader(name='Authorization', auto_error=True)
 class PlayerStats:
     def __init__(self) -> None:
         self.answered = False
+        self.correct = []
         self.times = []
         self.points = 0
         self.finished = False
