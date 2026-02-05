@@ -280,6 +280,7 @@ async def websocket_endpoint(websocket: WebSocket):
                     current_room.level_start = level_start
                     current_room.level_end = level_end
 
+<<<<<<< HEAD
                     tasks_data = await utils.filter_tasks(session, level_start, level_end, subcategory, None, category,
                                                           True, count)
 
@@ -290,6 +291,13 @@ async def websocket_endpoint(websocket: WebSocket):
                         current_room.other: False
                     }
                     current_room.task_advance_lock = asyncio.Lock()
+=======
+                    tasks_data = await utils.filter_tasks(session, level_start, level_end, subcategory, None, category, True, count)
+
+                    current_room.task_data = tasks_data
+                    print(current_room.task_data)
+                    current_room.total_points = sum([utils.level_to_points(x['level']) for x in current_room.task_data])
+>>>>>>> 3a40817b830dbbd83c3c7fe90b7da7e9e721e5bc
 
                     await websocket.send_json({
                         'event': 'your_room_created',
@@ -362,6 +370,7 @@ async def websocket_endpoint(websocket: WebSocket):
                         await ws_error(websocket, 'Room has already been started')
                         continue
 
+<<<<<<< HEAD
                     await session.execute(
                         update(database.Users).where(database.Users.id == current_room.host).values(status='battle'))
                     await session.execute(
@@ -389,6 +398,23 @@ async def websocket_endpoint(websocket: WebSocket):
                     else:
                         await ws_error(websocket, 'No tasks available')
                         continue
+=======
+                    await session.execute(update(database.Users).where(database.Users.id == current_room.host).values(status='battle'))
+                    await session.execute(update(database.Users).where(database.Users.id == current_room.other).values(status='battle'))
+
+                    await current_room.broadcast({
+                        'event': 'new_task',
+                        'index': current_room.current_task,
+                        'task': {
+                            'id': current_room.task_data[current_room.current_task]['id'],
+                            'level': current_room.task_data[current_room.current_task]['level'],
+                            'subcategory': current_room.task_data[current_room.current_task]['subcategory'],
+                            'condition': current_room.task_data[current_room.current_task]['condition'],
+                            'source': current_room.task_data[current_room.current_task]['source'],
+                            'answer_type': current_room.task_data[current_room.current_task]['answer_type'],
+                        }
+                    })
+>>>>>>> 3a40817b830dbbd83c3c7fe90b7da7e9e721e5bc
 
                     current_room.timer_task = asyncio.create_task(start_game_timer(current_room))
 
@@ -404,6 +430,7 @@ async def websocket_endpoint(websocket: WebSocket):
                     if current_room.current_task_index < len(current_room.task_data):
                         current_task_id = current_room.task_data[current_room.current_task_index]['id']
 
+<<<<<<< HEAD
                     if int(data['task_id']) != current_task_id:
                         await ws_error(websocket, 'Это не текущая задача')
                         continue
@@ -448,6 +475,92 @@ async def websocket_endpoint(websocket: WebSocket):
                     await advance_to_next_task(current_room, session)
 
 
+=======
+                    task = (await session.execute(select(database.Tasks).where(database.Tasks.id == int(current_room.task_data[current_room.current_task]['id'])))).scalar_one_or_none()
+                    if task is None:
+                        await ws_error(websocket, 'Task not found')
+                        continue
+
+                    correct = utils.gigachat_check_answer(data['answer'].strip(), task.condition, task.answer).lower() == 'да'
+
+                    if correct:
+                        if user_id == current_room.host:  # player 1
+                            if current_room.player_1_stats.answered:
+                                await ws_error(websocket, 'Task already solved')
+                                continue
+                            await current_room.other_ws.send({'event': 'other_solved', 'total_points': current_room.player_2_stats.points})
+                            current_room.player_1_stats.answered = True
+                            current_room.player_1_stats.times.append(int(data['time']))
+                            current_room.player_1_stats.points += utils.level_to_points(
+                                task.level)
+                        else:  # player 2
+                            if current_room.player_2_stats.answered:
+                                await ws_error(websocket, 'Task already solved')
+                                continue
+                            await current_room.host_ws.send({'event': 'other_solved', 'total_points': current_room.player_1_stats.points})
+                            current_room.player_2_stats.answered = True
+                            current_room.player_2_stats.times.append(int(data['time']))
+                            current_room.player_2_stats.points += utils.level_to_points(
+                                task.level)
+                        await websocket.send({'event': 'check_result', 'correct': True, 'points': utils.level_to_points(task.level)})
+                    else:
+                        await websocket.send({'event': 'check_result', 'correct': False})
+
+                    current_room.player_1_stats.answers |= {task.id: data['answer']}
+
+                    if current_room.player_1_stats.answered and current_room.player_2_stats.answered:
+                        current_room.player_1_stats.answered = False
+                        current_room.player_2_stats.answered = False
+
+                        current_room.current_task += 1
+                        if current_room.current_task == len(current_room.task_data):
+                            score_1_now = (await session.execute(select(database.Users).where(database.Users.id == current_room.host))).scalar_one().points
+                            score_2_now = (await session.execute(select(database.Users).where(database.Users.id == current_room.other))).scalar_one().points
+                            total_points = sum([utils.level_to_points(
+                                x['level']) for x in current_room.task_data])
+
+                            score1new, score2new = utils.calculate_elo_rating(
+                                score_1_now, score_2_now, current_room.player_1_stats.points / total_points, current_room.player_2_stats.points / total_points)
+
+                            t1 = current_room.player_1_stats.times
+                            t2 = current_room.player_2_stats.times
+
+                            await current_room.broadcast({
+                                'event': 'scores',
+                                'player1_new': score1new,
+                                'player1_correct': len(current_room.player_1_stats.solved),
+                                'player1_avgtime': sum(t1) / len(t1) if len(t1) > 0 else 0,
+                                'player2_new': score2new,
+                                'player2_correct': len(current_room.player_2_stats.solved),
+                                'player2_avgtime': sum(t2) / len(t2) if len(t2) > 0 else 0,
+                            })
+
+                            await session.execute(update(database.Users).where(database.Users.id == current_room.host).values(status=None, score=score1new))
+                            await session.execute(update(database.Users).where(database.Users.id == current_room.other).values(status=None, score=score2new))
+
+                            await analytics.change_values(current_room.host, {'task_quantity': len(current_room.task_data), 'answer_quantity': len(current_room.task_data), 'time_per_task': {
+                                current_room.task_data[i]['id']:current_room.player_1_stats.times[i] for i in range(len(current_room.task_data))
+                            }})
+                            await analytics.change_values(current_room.other, {'task_quantity': len(current_room.task_data), 'answer_quantity': len(current_room.task_data), 'time_per_task': {
+                                current_room.task_data[i]['id']:current_room.player_2_stats.times[i] for i in range(len(current_room.task_data))
+                            }})
+
+                            battle_manager.remove_room(current_room)
+                            current_room = None
+                        else:
+                            await current_room.broadcast({
+                                'event': 'new_task',
+                                'index': current_room.current_task,
+                                'task': {
+                                    'id': current_room.task_data[current_room.current_task]['id'],
+                                    'level': current_room.task_data[current_room.current_task]['level'],
+                                    'subcategory': current_room.task_data[current_room.current_task]['subcategory'],
+                                    'condition': current_room.task_data[current_room.current_task]['condition'],
+                                    'source': current_room.task_data[current_room.current_task]['source'],
+                                    'answer_type': current_room.task_data[current_room.current_task]['answer_type'],
+                                }
+                            })
+>>>>>>> 3a40817b830dbbd83c3c7fe90b7da7e9e721e5bc
                 elif cmd == 'send_to_chat':
                     if not verify_params(data, ['message']):
                         await ws_error(websocket, 'No message specified')
@@ -490,12 +603,16 @@ async def websocket_endpoint(websocket: WebSocket):
                             'answers': current_room.player_1_stats.answers,
                             'points': current_room.player_1_stats.points,
                             'solved': current_room.player_1_stats.solved,
+<<<<<<< HEAD
                             'other_points': current_room.player_2_stats.points,
                             'other_name': f'{user.name} {user.surname[0]}.',
                             'current_task_index': current_room.current_task_index,
                             'current_task': current_task,
                             'player_answered': current_room.player_answers_received.get(user_id, False),
                             'other_answered': current_room.player_answers_received.get(current_room.other, False)
+=======
+                            'other_points': current_room.player_2_stats.points
+>>>>>>> 3a40817b830dbbd83c3c7fe90b7da7e9e721e5bc
                         }
                     else:
                         other_user = await utils.user_by_id(session, current_room.host)
@@ -521,6 +638,7 @@ async def websocket_endpoint(websocket: WebSocket):
                     }
                     res['event'] = 'game_state'
                     await websocket.send_json(res)
+<<<<<<< HEAD
 
                 elif cmd == 'finish':
                     if not verify_params(data, ['times']):
@@ -588,6 +706,8 @@ async def websocket_endpoint(websocket: WebSocket):
                         })
 
                         battle_manager.remove_room(current_room)
+=======
+>>>>>>> 3a40817b830dbbd83c3c7fe90b7da7e9e721e5bc
                 else:
                     await ws_error(websocket, f'Unknown command: {cmd}')
 
