@@ -12,9 +12,10 @@ from typing import Annotated
 API_Key_Header = APIKeyHeader(name='Authorization', auto_error=True)
 class PlayerStats:
     def __init__(self) -> None:
-        self.answered = False
-        self.times = []
+        self.answers = {}
+        self.times = None
         self.points = 0
+        self.solved = []
         self.finished = False
 
 
@@ -27,8 +28,7 @@ class Room:
         self.other_ws: WebSocket | None = None
         self.id = id
         self.name = name
-        self.task_data: list[dict] = []
-        self.total_points: int = 0
+        self.task_data: list[Tasks] = []
         self.time_limit: int | None = None
         self.start_time: float | None = None
         self.player_1_stats = PlayerStats()  # host
@@ -54,7 +54,6 @@ class Room:
             'category': self.category,
             'level_start': self.level_start,
             'level_end': self.level_end,
-            'current_task': self.current_task
             # 'game_state': self.game_state.to_dict() if self.game_state else None,
             # "time_limit": self.time_limit,
             # "player1_answers": self.player1_answers,
