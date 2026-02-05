@@ -63,8 +63,6 @@ async def get_userid_by_datetime(userid: int, start_date: datetime, final_date: 
                         select(database.Analytics).where(start_date <= database.Analytics.date).where(
                             database.Analytics.date <= final_date).where(database.Analytics.id == user.id))
                 return utils.json_response(request.scalars().all())
-
-
             
 
 
