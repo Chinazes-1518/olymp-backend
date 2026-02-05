@@ -17,8 +17,8 @@ async def create_new_record(userid: int, session: AsyncSession):
     return req.inserted_primary_key[0]
 
 
-async def create_battle_record(task_id: int, userid1: int, userid2: int, session: AsyncSession):
-    req = await session.execute(insert(database.BattleHistory).values(id=task_id, userid1=userid1, userid2=userid2,
+async def create_battle_record(userid1: int, userid2: int, session: AsyncSession):
+    req = await session.execute(insert(database.BattleHistory).values(userid1=userid1, userid2=userid2,
                                                                   data={'result1': 0, 'result2': 0, 'solving_time1': [], 'solving_time2': []},
                                                                       date=date.today()))
     return req.inserted_primary_key[0]
@@ -71,7 +71,7 @@ async def get_userid_by_datetime(userid: int, start_date: datetime, final_date: 
                 return utils.json_response(request.scalars().all())
 
 
-async def add_battle_history(task_id, userid1, userid2, count):
+async def add_battle_history(userid1, userid2, count):
     async with database.sessions.begin() as session:
         request = await session.execute(select(database.Users).where(and_(database.Users.id == userid1, database.Users.id == userid2)))
         b = request.scalar_one_or_none()
@@ -81,7 +81,7 @@ async def add_battle_history(task_id, userid1, userid2, count):
             and_(database.BattleHistory.date == date.today(), userid1 == database.BattleHistory.id1, userid2 == database.BattleHistory.id2)))
         row = req.scalar_one_or_none()
         if row is None:
-            row_id = await create_battle_record(task_id, userid1, userid2, session)
+            row_id = await create_battle_record(userid1, userid2, session)
             current = {'result1': 0, 'result2': 0, 'solving_time1': [], 'solving_time2': []}
         else:
             current = row.data
