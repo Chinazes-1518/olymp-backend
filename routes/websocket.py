@@ -262,12 +262,12 @@ async def websocket_endpoint(websocket: WebSocket):
                             current_room.player_1_stats.correct[current_room.current_task] = True
                             current_room.player_1_stats.points += utils.level_to_points(
                                 task.level)
-                            await current_room.other_ws.send_json({'event': 'other_solved', 'total_points': current_room.player_2_stats.points})
+                            await current_room.other_ws.send_json({'event': 'other_solved', 'total_points': current_room.player_1_stats.points})
                         else:  # player 2
                             current_room.player_2_stats.correct[current_room.current_task] = True
                             current_room.player_2_stats.points += utils.level_to_points(
                                 task.level)
-                            await current_room.host_ws.send_json({'event': 'other_solved', 'total_points': current_room.player_1_stats.points})
+                            await current_room.host_ws.send_json({'event': 'other_solved', 'total_points': current_room.player_2_stats.points})
                         await websocket.send_json({'event': 'check_result', 'correct': True, 'points': utils.level_to_points(task.level)})
                     else:
                         await websocket.send_json({'event': 'check_result', 'correct': False})
