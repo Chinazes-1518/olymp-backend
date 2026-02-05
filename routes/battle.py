@@ -53,14 +53,8 @@ class Room:
             'category': self.category,
             'level_start': self.level_start,
             'level_end': self.level_end,
-            'current_task': self.current_task
-            # 'game_state': self.game_state.to_dict() if self.game_state else None,
-            # "time_limit": self.time_limit,
-            # "player1_answers": self.player1_answers,
-            # "player2_answers": self.player2_answers,
-            # "player1_points": self.player1_points,
-            # "player2_points": self.player2_points,
-            # "status": self.status
+            'current_task': self.current_task,
+            'total_points': self.total_points
         }
 
     async def broadcast(self, data: dict):
