@@ -125,6 +125,8 @@ async def websocket_endpoint(websocket: WebSocket):
                     current_room.task_data = tasks_data
                     print(current_room.task_data)
                     current_room.total_points = sum([utils.level_to_points(x['level']) for x in current_room.task_data])
+                    current_room.player_1_stats.correct = [False] * len(tasks_data)
+                    current_room.player_2_stats.correct = [False] * len(tasks_data)
 
                     await websocket.send_json({
                         'event': 'your_room_created',
@@ -252,6 +254,7 @@ async def websocket_endpoint(websocket: WebSocket):
                                 continue
                             await current_room.other_ws.send({'event': 'other_solved', 'total_points': current_room.player_2_stats.points})
                             current_room.player_1_stats.answered = True
+                            current_room.player_1_stats.correct[current_room.current_task] = True
                             current_room.player_1_stats.times.append(int(data['time']))
                             current_room.player_1_stats.points += utils.level_to_points(
                                 task.level)
@@ -261,14 +264,13 @@ async def websocket_endpoint(websocket: WebSocket):
                                 continue
                             await current_room.host_ws.send({'event': 'other_solved', 'total_points': current_room.player_1_stats.points})
                             current_room.player_2_stats.answered = True
+                            current_room.player_2_stats.correct[current_room.current_task] = True
                             current_room.player_2_stats.times.append(int(data['time']))
                             current_room.player_2_stats.points += utils.level_to_points(
                                 task.level)
                         await websocket.send({'event': 'check_result', 'correct': True, 'points': utils.level_to_points(task.level)})
                     else:
                         await websocket.send({'event': 'check_result', 'correct': False})
-
-                    current_room.player_1_stats.answers |= {task.id: data['answer']}
 
                     if current_room.player_1_stats.answered and current_room.player_2_stats.answered:
                         current_room.player_1_stats.answered = False
@@ -284,16 +286,16 @@ async def websocket_endpoint(websocket: WebSocket):
                             score1new, score2new = utils.calculate_elo_rating(
                                 score_1_now, score_2_now, current_room.player_1_stats.points / total_points, current_room.player_2_stats.points / total_points)
 
-                            t1 = current_room.player_1_stats.times
-                            t2 = current_room.player_2_stats.times
+                            t1 = [x for i,x in enumerate(current_room.player_1_stats.times) if current_room.player_1_stats.correct[i]]
+                            t2 = [x for i,x in enumerate(current_room.player_2_stats.times) if current_room.player_2_stats.correct[i]]
 
                             await current_room.broadcast({
                                 'event': 'scores',
                                 'player1_new': score1new,
-                                'player1_correct': len(current_room.player_1_stats.solved),
+                                'player1_correct': sum(current_room.player_1_stats.correct),
                                 'player1_avgtime': sum(t1) / len(t1) if len(t1) > 0 else 0,
                                 'player2_new': score2new,
-                                'player2_correct': len(current_room.player_2_stats.solved),
+                                'player2_correct': sum(current_room.player_2_stats.correct),
                                 'player2_avgtime': sum(t2) / len(t2) if len(t2) > 0 else 0,
                             })
 
@@ -346,18 +348,22 @@ async def websocket_endpoint(websocket: WebSocket):
                     if user_id == current_room.host:
                         other_user = await utils.user_by_id(session, current_room.other)
                         res |= {
-                            'answers': current_room.player_1_stats.answers,
+                            'correct': current_room.player_1_stats.correct,
                             'points': current_room.player_1_stats.points,
-                            'solved': current_room.player_1_stats.solved,
-                            'other_points': current_room.player_2_stats.points
+                            'other_points': current_room.player_2_stats.points,
+                            'answered': current_room.player_1_stats.answered,
+                            'finished': current_room.player_1_stats.finished,
+                            'times': current_room.player_1_stats.times,
                         }
                     else:
                         other_user = await utils.user_by_id(session, current_room.host)
                         res |= {
-                            'answers': current_room.player_2_stats.answers,
+                            'correct': current_room.player_2_stats.correct,
                             'points': current_room.player_2_stats.points,
-                            'solved': current_room.player_2_stats.solved,
-                            'other_points': current_room.player_1_stats.points
+                            'other_points': current_room.player_1_stats.points,
+                            'answered': current_room.player_2_stats.answered,
+                            'finished': current_room.player_2_stats.finished,
+                            'times': current_room.player_2_stats.times,
                         }
 
                     res['task'] = {
