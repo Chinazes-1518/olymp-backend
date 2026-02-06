@@ -301,6 +301,7 @@ async def websocket_endpoint(websocket: WebSocket):
 
                             await session.execute(update(database.Users).where(database.Users.id == current_room.host).values(status=None, score=score1new))
                             await session.execute(update(database.Users).where(database.Users.id == current_room.other).values(status=None, score=score2new))
+                            await session.commit()
 
                             await analytics.change_values(current_room.host, {'task_quantity': len(current_room.task_data), 'answer_quantity': len(current_room.task_data), 'time_per_task': {
                                 current_room.task_data[i]['id']: current_room.player_1_stats.times[i] for i in range(len(current_room.task_data)) if current_room.player_1_stats.correct[i]
@@ -343,6 +344,9 @@ async def websocket_endpoint(websocket: WebSocket):
                 elif cmd == 'get_game_state':
                     if current_room is None:
                         await ws_error(websocket, 'Not in a room')
+                        continue
+                    if current_room.status != 'started':
+                        await ws_error(websocket, 'Room is not running')
                         continue
                     res = current_room.json()
                     if user_id == current_room.host:
@@ -389,5 +393,5 @@ async def websocket_endpoint(websocket: WebSocket):
         except json.JSONDecodeError:
             await ws_error(websocket, 'Incorrect JSON data')
         except Exception as e:
-            print(f"Ошибка: {e.with_traceback(sys.exc_info()[2])}")
+            print(f"Ошибка: {e.with_traceback()}")
             await ws_error(websocket, f'Internal server error: {str(e)}')
