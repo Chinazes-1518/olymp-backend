@@ -80,3 +80,23 @@ async def verify_token(token: str=Depends(API_Key_Header)) -> JSONResponse:
         if user is None:
             raise HTTPException(403, {"error": "Токен не существует"})
         return utils.json_response({'token': user.token, 'id': user.id, 'name': user.name, 'surname': user.surname, 'status': user.status, 'training': user.current_training})
+
+
+@router.post('/update')
+async def update_user(
+        name: Annotated[str, Query()],
+        surname: Annotated[str, Query()],
+        token: str = Depends(API_Key_Header)
+) -> JSONResponse:
+    async with database.sessions.begin() as session:
+        user = await utils.token_to_user(session, token)
+        if user is None:
+            raise HTTPException(403, {'error': 'Пользователь не существует'})
+        if not (1 <= len(name) <= 30):
+            raise HTTPException(422, {'error': 'Длина имени должна быть от 1 до 30 символов'})
+        if not (2 <= len(surname) <= 30):
+            raise HTTPException(422, {'error': 'Длина фамилии должна быть от 2 до 30 символов'})
+        user.name = name.strip()
+        user.surname = surname.strip()
+        await session.commit()
+        return utils.json_response({'success': True})

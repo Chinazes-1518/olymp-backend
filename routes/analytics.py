@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Header
 from fastapi.responses import JSONResponse
-from sqlalchemy import select, update, insert, and_, or_
+from sqlalchemy import select, update, insert, and_, or_, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Annotated
 from datetime import datetime, date, timedelta
@@ -103,7 +103,103 @@ async def add_battle_history(userid1, userid2, count):
 
         await session.execute(update(database.BattleHistory).where(database.BattleHistory.id == row_id).values(data=current))
 
-            
+
+@router.get('/get_user_stats')
+async def get_user_stats(token: str = Depends(API_Key_Header)) -> JSONResponse:
+    async with database.sessions.begin() as session:
+        user = await utils.token_to_user(session, token)
+        if user is None:
+            raise HTTPException(403, {'error': 'Пользователь не существует'})
+        request = await session.execute(
+            select(database.Analytics).where(database.Analytics.userid == user.id)
+        )
+        records = request.scalars().all()
+        total_solved = 0
+        total_attempts = 0
+        total_time = 0
+        time_entries = 0
+        for record in records:
+            data = record.data or {}
+            total_solved += data.get('task_quantity', 0)
+            total_attempts += data.get('answer_quantity', 0)
+
+            time_per_task = data.get('time_per_task', {})
+            if isinstance(time_per_task, dict):
+                for task_time in time_per_task.values():
+                    total_time += int(task_time)
+                    time_entries += 1
+        tasks_request = await session.execute(select(func.count(database.Tasks.id)))
+        total_tasks = tasks_request.scalar() or 0
+        correct_percentage = 0
+        if total_attempts > 0:
+            correct_percentage = round((total_solved / total_attempts) * 100, 1)
+        average_time = 0
+        if time_entries > 0:
+            average_time = round(total_time / time_entries, 1)
+        return utils.json_response({
+            'total_solved': total_solved,
+            'total_tasks': total_tasks,
+            'total_attempts': total_attempts,
+            'correct_percentage': correct_percentage,
+            'average_time': average_time
+        })
+
+
+@router.get('/get_user_stats_by_period')
+async def get_user_stats_by_period(
+        start_date: str,
+        end_date: str,
+        token: str = Depends(API_Key_Header)
+) -> JSONResponse:
+    async with database.sessions.begin() as session:
+        user = await utils.token_to_user(session, token)
+        if user is None:
+            raise HTTPException(403, {'error': 'Пользователь не существует'})
+        try:
+            start = datetime.fromisoformat(start_date)
+            end = datetime.fromisoformat(end_date)
+        except ValueError:
+            raise HTTPException(400, {'error': 'Неверный формат даты. Используйте YYYY-MM-DD'})
+        request = await session.execute(
+            select(database.Analytics).where(
+                and_(
+                    database.Analytics.userid == user.id,
+                    database.Analytics.date >= start,
+                    database.Analytics.date <= end
+                )
+            )
+        )
+        records = request.scalars().all()
+        total_solved = 0
+        total_attempts = 0
+        total_time = 0
+        time_entries = 0
+        for record in records:
+            data = record.data or {}
+            total_solved += data.get('task_quantity', 0)
+            total_attempts += data.get('answer_quantity', 0)
+            time_per_task = data.get('time_per_task', {})
+            if isinstance(time_per_task, dict):
+                for task_time in time_per_task.values():
+                    total_time += int(task_time)
+                    time_entries += 1
+        tasks_request = await session.execute(select(func.count(database.Tasks.id)))
+        total_tasks = tasks_request.scalar() or 0
+        correct_percentage = 0
+        if total_attempts > 0:
+            correct_percentage = round((total_solved / total_attempts) * 100, 1)
+
+        average_time = 0
+        if time_entries > 0:
+            average_time = round(total_time / time_entries, 1)
+
+        return utils.json_response({
+            'total_solved': total_solved,
+            'total_tasks': total_tasks,
+            'total_attempts': total_attempts,
+            'correct_percentage': correct_percentage,
+            'average_time': average_time
+        })
 
 
 
