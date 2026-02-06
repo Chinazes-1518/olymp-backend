@@ -376,6 +376,7 @@ async def websocket_endpoint(websocket: WebSocket):
                     }
                     res['event'] = 'game_state'
                     res['other_name'] = f'{other_user.name} {other_user.surname[0]}.'
+                    res['start_time'] = current_room.start_time
                     await websocket.send_json(res)
                 else:
                     await ws_error(websocket, f'Unknown command: {cmd}')
