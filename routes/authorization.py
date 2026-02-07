@@ -79,7 +79,7 @@ async def verify_token(token: str=Depends(API_Key_Header)) -> JSONResponse:
         user = await utils.token_to_user(session, token)
         if user is None:
             raise HTTPException(403, {"error": "Токен не существует"})
-        return utils.json_response({'token': user.token, 'id': user.id, 'name': user.name, 'surname': user.surname, 'status': user.status, 'training': user.current_training})
+        return utils.json_response({'token': user.token, 'id': user.id, 'name': user.name, 'surname': user.surname, 'status': user.status, 'training': user.current_training, 'login': user.login, 'points': user.points,})
 
 
 @router.post('/update')
