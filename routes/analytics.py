@@ -7,6 +7,7 @@ from datetime import datetime, date, timedelta
 from fastapi.security import APIKeyHeader
 import database
 import utils
+from datetime import timedelta
 from fastapi.params import Depends
 router = APIRouter(prefix='/analytics')
 
@@ -160,12 +161,13 @@ async def get_user_stats_by_period(
             end = datetime.fromisoformat(end_date)
         except ValueError:
             raise HTTPException(400, {'error': 'Неверный формат даты. Используйте YYYY-MM-DD'})
+        end_inclusive = end + timedelta(days=1)
         request = await session.execute(
             select(database.Analytics).where(
                 and_(
                     database.Analytics.userid == user.id,
                     database.Analytics.date >= start,
-                    database.Analytics.date <= end
+                    database.Analytics.date < end_inclusive
                 )
             )
         )
@@ -178,6 +180,7 @@ async def get_user_stats_by_period(
             data = record.data or {}
             total_solved += data.get('task_quantity', 0)
             total_attempts += data.get('answer_quantity', 0)
+
             time_per_task = data.get('time_per_task', {})
             if isinstance(time_per_task, dict):
                 for task_time in time_per_task.values():
@@ -188,11 +191,9 @@ async def get_user_stats_by_period(
         correct_percentage = 0
         if total_attempts > 0:
             correct_percentage = round((total_solved / total_attempts) * 100, 1)
-
         average_time = 0
         if time_entries > 0:
             average_time = round(total_time / time_entries, 1)
-
         return utils.json_response({
             'total_solved': total_solved,
             'total_tasks': total_tasks,
@@ -202,6 +203,82 @@ async def get_user_stats_by_period(
         })
 
 
+@router.get('/get_user_stats_daily')
+async def get_user_stats_daily(
+        start_date: str,
+        end_date: str,
+        token: str = Depends(API_Key_Header)
+) -> JSONResponse:
+    async with database.sessions.begin() as session:
+        user = await utils.token_to_user(session, token)
+        if user is None:
+            raise HTTPException(403, {'error': 'Пользователь не существует'})
+        try:
+            start = datetime.fromisoformat(start_date)
+            end = datetime.fromisoformat(end_date)
+        except ValueError:
+            raise HTTPException(400, {'error': 'Неверный формат даты. Используйте YYYY-MM-DD'})
+        end_inclusive = end + timedelta(days=1)
+        request = await session.execute(
+            select(database.Analytics).where(
+                and_(
+                    database.Analytics.userid == user.id,
+                    database.Analytics.date >= start,
+                    database.Analytics.date < end_inclusive
+                )
+            ).order_by(database.Analytics.date)
+        )
+        records = request.scalars().all()
+        if not records:
+            return utils.json_response([])
+        daily_stats = []
+        for record in records:
+            data = record.data or {}
+            if isinstance(record.date, datetime):
+                date_str = record.date.strftime('%Y-%m-%d')
+            else:
+                date_str = str(record.date)
+            solved_tasks = data.get('task_quantity', 0)
+            attempts = data.get('answer_quantity', 0)
+            time_per_task = data.get('time_per_task', {})
+            total_time = 0
+            time_entries = 0
+            if isinstance(time_per_task, dict):
+                for task_time in time_per_task.values():
+                    try:
+                        total_time += int(task_time)
+                        time_entries += 1
+                    except (ValueError, TypeError):
+                        continue
+            average_time = 0
+            if time_entries > 0:
+                average_time = round(total_time / time_entries, 1)
+            daily_stats.append({
+                'date': date_str,
+                'solved_tasks': solved_tasks,
+                'attempts': attempts,
+                'average_time': average_time
+            })
+        filled_daily_stats = []
+        current_date = start
+        while current_date <= end:
+            date_str = current_date.strftime('%Y-%m-%d')
+            stat_for_date = None
+            for stat in daily_stats:
+                if stat['date'] == date_str:
+                    stat_for_date = stat
+                    break
+            if stat_for_date:
+                filled_daily_stats.append(stat_for_date)
+            else:
+                filled_daily_stats.append({
+                    'date': date_str,
+                    'solved_tasks': 0,
+                    'attempts': 0,
+                    'average_time': 0
+                })
+            current_date += timedelta(days=1)
+        return utils.json_response(filled_daily_stats)
 
 
 
