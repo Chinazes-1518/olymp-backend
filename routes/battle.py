@@ -82,6 +82,9 @@ class BattleManager:
             if r.id == room_id:
                 return r
         return None
+    
+    def has_room(self, room: Room) -> bool:
+        return room in self.rooms
 
     def get_room_by_user(self, user_id: int) -> Room | None:
         return self.user_to_room.get(user_id, None)

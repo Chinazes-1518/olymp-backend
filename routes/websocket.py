@@ -26,7 +26,7 @@ async def end_game(session, room: Room):
     room.status = 'finishing'
 
     p1u = (await session.execute(select(database.Users).where(database.Users.id == room.host))).scalar_one()
-    p2u = (await session.execute(select(database.Users).where(database.Users.id == room.host))).scalar_one()
+    p2u = (await session.execute(select(database.Users).where(database.Users.id == room.other))).scalar_one()
     score_1_now = p1u.points
     score_2_now = p2u.points
 
@@ -61,10 +61,8 @@ async def end_game(session, room: Room):
         },
     })
 
-    await session.execute(update(database.Users).where(database.Users.id == room.host).values(status=None, score=score1new))
-    await session.commit()
-    await session.execute(update(database.Users).where(database.Users.id == room.other).values(status=None, score=score2new))
-    await session.commit()
+    await session.execute(update(database.Users).where(database.Users.id == room.host).values(status=None, points=score1new))
+    await session.execute(update(database.Users).where(database.Users.id == room.other).values(status=None, points=score2new))
 
     await analytics.change_values(room.host, {'task_quantity': sum(1 if x else 0 for x in room.player_1_stats.correct), 'answer_quantity': len(room.task_data), 'time_per_task': {
         room.task_data[i]['id']: room.player_1_stats.times[i] for i in range(len(room.task_data)) if room.player_1_stats.correct[i]
@@ -144,6 +142,9 @@ async def websocket_endpoint(websocket: WebSocket):
                         elif current_room.other == user_id:
                             # print(user_id, 'dbg 4')
                             current_room.other_ws = websocket
+                    
+                if not battle_manager.has_room(current_room):
+                    current_room = None
 
                 if cmd == 'create_room':
                     if not verify_params(data, ['name']):
@@ -299,7 +300,7 @@ async def websocket_endpoint(websocket: WebSocket):
                         await ws_error(websocket, 'Task not found')
                         continue
 
-                    correct = utils.gigachat_check_answer(data['answer'].strip(), task.condition, task.answer).lower() == 'да'
+                    correct = (await utils.gigachat_check_answer(data['answer'].strip(), task.condition, task.answer)).lower() == 'да'
                     if user_id == current_room.host:
                         if current_room.player_1_stats.answered:
                             await ws_error(websocket, 'Task already solved')
@@ -417,5 +418,5 @@ async def websocket_endpoint(websocket: WebSocket):
         except json.JSONDecodeError:
             await ws_error(websocket, 'Incorrect JSON data')
         except Exception as e:
-            print(f"Ошибка: {e.with_traceback()}")
+            print(f"Ошибка: {e}")
             await ws_error(websocket, f'Internal server error: {str(e)}')

@@ -87,7 +87,7 @@ async def check_answer(answer: Annotated[str, Query],
         b = request.scalars().one_or_none()
         if b is None:
             raise HTTPException(403, {"error": "Задачи не существует"})
-        get_answer = utils.gigachat_check_answer(answer, str(b.condition), str(b.answer))
+        get_answer = await utils.gigachat_check_answer(answer, str(b.condition), str(b.answer))
         if get_answer.lower() == 'да':
             await analytics.change_values(user.id, {'task_quantity': 1, 'answer_quantity': 1, 'time_per_task': {id: time_per_task}})
         else:
@@ -105,9 +105,9 @@ async def check_answer_and_solution(answer: Annotated[str, Query], solution: Opt
         request = (await session.execute(select(database.Tasks).where(database.Tasks.id == id)))
         b = request.scalars().one_or_none()
         if solution is None:
-            get_answer = utils.gigachat_check_answer(answer, b.condition, b.answer)
+            get_answer = await utils.gigachat_check_answer(answer, b.condition, b.answer)
             return utils.json_response({'correct': get_answer.lower() == 'да'})
-        get_answer = utils.gigachat_check_training_answer(answer, solution, b.condition, b.answer, b.solution)
+        get_answer = await utils.gigachat_check_training_answer(answer, solution, b.condition, b.answer, b.solution)
         if get_answer.lower() == 'да':
             await analytics.change_values(user.id,{'task_quantity': 1, 'answer_quantity': 1, 'time_per_task': {id: time_per_task}})
             return utils.json_response({'correct': True})
