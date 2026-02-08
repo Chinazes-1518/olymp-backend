@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
+from sqlalchemy import update
 import uvicorn
 import json
 
@@ -13,7 +14,10 @@ async def lifespan(app: FastAPI):
     print("Creating tables in database")
     async with database.engine.begin() as connection:
         await connection.run_sync(database.MainBase.metadata.create_all)
-    # await routes.analytics.change_values(4, {'task_quantity': 3, 'answer_quantity': 5, 'time_per_task': {'123456': 180}})
+        
+    print("Clearing battle status")
+    async with database.sessions.begin() as session:
+        await session.execute(update(database.Users).values(status=None).where(database.Users.status == 'battle'))
 
     if 0:
         print('Adding tasks from json')
@@ -34,14 +38,6 @@ async def lifespan(app: FastAPI):
             })
 
     yield
-
-# {
-#     'task_quantity': 1,
-#     'answer_quantity': 1,
-#     'time_per_task': {
-#         123456: 180
-#     }
-# }
 
 app = FastAPI(lifespan=lifespan)
 app.include_router(routes.router)

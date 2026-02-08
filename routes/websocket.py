@@ -3,7 +3,6 @@ from sqlalchemy import select, and_, cast, String, func, update
 import asyncio
 import json
 import time
-import sys
 
 from routes import analytics
 from utils import token_to_user
@@ -142,8 +141,9 @@ async def websocket_endpoint(websocket: WebSocket):
                         elif current_room.other == user_id:
                             # print(user_id, 'dbg 4')
                             current_room.other_ws = websocket
-                    
+
                 if not battle_manager.has_room(current_room):
+                    print('current room is none!')
                     current_room = None
 
                 if cmd == 'create_room':
@@ -295,38 +295,43 @@ async def websocket_endpoint(websocket: WebSocket):
                         await ws_error(websocket, 'Not in game')
                         continue
 
+                    if user_id == current_room.host:
+                        if current_room.player_1_stats.answered:
+                            await ws_error(websocket, 'Task already solved')
+                            continue
+                    else:
+                        if current_room.player_2_stats.answered:
+                            await ws_error(websocket, 'Task already solved')
+                            continue
+
                     task = (await session.execute(select(database.Tasks).where(database.Tasks.id == int(current_room.task_data[current_room.current_task]['id'])))).scalar_one_or_none()
                     if task is None:
                         await ws_error(websocket, 'Task not found')
                         continue
 
                     correct = (await utils.gigachat_check_answer(data['answer'].strip(), task.condition, task.answer)).lower() == 'да'
-                    if user_id == current_room.host:
-                        if current_room.player_1_stats.answered:
-                            await ws_error(websocket, 'Task already solved')
-                            continue
-                        current_room.player_1_stats.times.append(int(data['time']))
-                        current_room.player_1_stats.answered = True
-                    else:
-                        if current_room.player_2_stats.answered:
-                            await ws_error(websocket, 'Task already solved')
-                            continue
-                        current_room.player_2_stats.times.append(int(data['time']))
-                        current_room.player_2_stats.answered = True
+
                     if correct:
                         if user_id == current_room.host:  # player 1
                             current_room.player_1_stats.correct[current_room.current_task] = True
                             current_room.player_1_stats.points += utils.level_to_points(
                                 task.level)
-                            await current_room.other_ws.send_json({'event': 'other_solved', 'total_points': current_room.player_1_stats.points})
                         else:  # player 2
                             current_room.player_2_stats.correct[current_room.current_task] = True
                             current_room.player_2_stats.points += utils.level_to_points(
                                 task.level)
-                            await current_room.host_ws.send_json({'event': 'other_solved', 'total_points': current_room.player_2_stats.points})
                         await websocket.send_json({'event': 'check_result', 'correct': True, 'points': utils.level_to_points(task.level)})
                     else:
                         await websocket.send_json({'event': 'check_result', 'correct': False})
+
+                    if user_id == current_room.host:
+                        current_room.player_1_stats.times.append(int(data['time']))
+                        current_room.player_1_stats.answered = True
+                        await current_room.other_ws.send_json({'event': 'other_solved', 'correct': correct, 'total_points': current_room.player_1_stats.points})
+                    else:
+                        current_room.player_2_stats.times.append(int(data['time']))
+                        current_room.player_2_stats.answered = True
+                        await current_room.host_ws.send_json({'event': 'other_solved', 'correct': correct, 'total_points': current_room.player_2_stats.points})
 
                     if current_room.player_1_stats.answered and current_room.player_2_stats.answered:
                         current_room.player_1_stats.answered = False
@@ -335,6 +340,8 @@ async def websocket_endpoint(websocket: WebSocket):
                         current_room.current_task += 1
                         if current_room.current_task == len(current_room.task_data):
                             await end_game(session, current_room)
+                            if current_room.timer_task:
+                                current_room.timer_task.cancel()
                             current_room = None
                         else:
                             await current_room.broadcast({
@@ -379,6 +386,8 @@ async def websocket_endpoint(websocket: WebSocket):
                             'correct': current_room.player_1_stats.correct,
                             'points': current_room.player_1_stats.points,
                             'other_points': current_room.player_2_stats.points,
+                            'other_answered': current_room.player_2_stats.answered,
+                            'other_correct': current_room.player_2_stats.correct[current_room.current_task],
                             'answered': current_room.player_1_stats.answered,
                             'finished': current_room.player_1_stats.finished,
                             'times': current_room.player_1_stats.times,
@@ -389,6 +398,8 @@ async def websocket_endpoint(websocket: WebSocket):
                             'correct': current_room.player_2_stats.correct,
                             'points': current_room.player_2_stats.points,
                             'other_points': current_room.player_1_stats.points,
+                            'other_answered': current_room.player_1_stats.answered,
+                            'other_correct': current_room.player_1_stats.correct[current_room.current_task],
                             'answered': current_room.player_2_stats.answered,
                             'finished': current_room.player_2_stats.finished,
                             'times': current_room.player_2_stats.times,
