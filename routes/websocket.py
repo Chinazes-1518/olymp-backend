@@ -19,6 +19,63 @@ def verify_params(data: dict, params: list[str]) -> bool:
     return all(x in data for x in params)
 
 
+async def end_game(session, room: Room):
+    if room.status != 'started':
+        return
+
+    room.status = 'finishing'
+
+    p1u = (await session.execute(select(database.Users).where(database.Users.id == room.host))).scalar_one()
+    p2u = (await session.execute(select(database.Users).where(database.Users.id == room.host))).scalar_one()
+    score_1_now = p1u.points
+    score_2_now = p2u.points
+
+    winner = 1 if room.player_1_stats.points > room.player_2_stats.points else (
+        2 if room.player_1_stats.points < room.player_2_stats.points else 0)
+
+    score1new, score2new = utils.calculate_elo_rating(
+        score_1_now, score_2_now, 1 if winner == 1 else (0 if winner == 2 else 0.5), 1 if winner == 2 else (0 if winner == 1 else 0.5))
+
+    t1 = [x for i, x in enumerate(room.player_1_stats.times) if room.player_1_stats.correct[i]]
+    t2 = [x for i, x in enumerate(room.player_2_stats.times) if room.player_2_stats.correct[i]]
+
+    await room.broadcast({
+        'event': 'scores',
+        'total_points': room.total_points,
+        'winner': winner,
+        'player1': {
+            'name': f'{p1u.name} {p1u.surname[0]}.',
+            'points': room.player_1_stats.points,
+            'total_time': sum(room.player_1_stats.times),
+            'avg_time': sum(t1) / len(t1) if len(t1) > 0 else 0,
+            'score_before': score_1_now,
+            'score_after': score1new,
+        },
+        'player2': {
+            'name': f'{p2u.name} {p2u.surname[0]}.',
+            'points': room.player_2_stats.points,
+            'total_time': sum(room.player_2_stats.times),
+            'avg_time': sum(t2) / len(t2) if len(t2) > 0 else 0,
+            'score_before': score_2_now,
+            'score_after': score2new,
+        },
+    })
+
+    await session.execute(update(database.Users).where(database.Users.id == room.host).values(status=None, score=score1new))
+    await session.commit()
+    await session.execute(update(database.Users).where(database.Users.id == room.other).values(status=None, score=score2new))
+    await session.commit()
+
+    await analytics.change_values(room.host, {'task_quantity': sum(1 if x else 0 for x in room.player_1_stats.correct), 'answer_quantity': len(room.task_data), 'time_per_task': {
+        room.task_data[i]['id']: room.player_1_stats.times[i] for i in range(len(room.task_data)) if room.player_1_stats.correct[i]
+    }})
+    await analytics.change_values(room.other, {'task_quantity': sum(1 if x else 0 for x in room.player_2_stats.correct), 'answer_quantity': len(room.task_data), 'time_per_task': {
+        room.task_data[i]['id']: room.player_2_stats.times[i] for i in range(len(room.task_data)) if room.player_2_stats.correct[i]
+    }})
+
+    battle_manager.remove_room(room)
+
+
 async def start_game_timer(room: Room):
     if room.status != 'waiting':
         return
@@ -33,10 +90,8 @@ async def start_game_timer(room: Room):
 
     await asyncio.sleep(room.time_limit * 60)
 
-    await room.broadcast({
-        'event': 'game_finished',
-    })
-    room.status = 'finishing'
+    async with database.sessions.begin() as session:
+        await end_game(session, room)
 
 
 connected_websockets: list[WebSocket] = []
@@ -278,39 +333,7 @@ async def websocket_endpoint(websocket: WebSocket):
 
                         current_room.current_task += 1
                         if current_room.current_task == len(current_room.task_data):
-                            score_1_now = (await session.execute(select(database.Users).where(database.Users.id == current_room.host))).scalar_one().points
-                            score_2_now = (await session.execute(select(database.Users).where(database.Users.id == current_room.other))).scalar_one().points
-                            total_points = sum([utils.level_to_points(
-                                x['level']) for x in current_room.task_data])
-
-                            score1new, score2new = utils.calculate_elo_rating(
-                                score_1_now, score_2_now, current_room.player_1_stats.points / total_points, current_room.player_2_stats.points / total_points)
-
-                            t1 = [x for i, x in enumerate(current_room.player_1_stats.times) if current_room.player_1_stats.correct[i]]
-                            t2 = [x for i, x in enumerate(current_room.player_2_stats.times) if current_room.player_2_stats.correct[i]]
-
-                            await current_room.broadcast({
-                                'event': 'scores',
-                                'player1_new': score1new,
-                                'player1_correct': sum(current_room.player_1_stats.correct),
-                                'player1_avgtime': sum(t1) / len(t1) if len(t1) > 0 else 0,
-                                'player2_new': score2new,
-                                'player2_correct': sum(current_room.player_2_stats.correct),
-                                'player2_avgtime': sum(t2) / len(t2) if len(t2) > 0 else 0,
-                            })
-
-                            await session.execute(update(database.Users).where(database.Users.id == current_room.host).values(status=None, score=score1new))
-                            await session.execute(update(database.Users).where(database.Users.id == current_room.other).values(status=None, score=score2new))
-                            await session.commit()
-
-                            await analytics.change_values(current_room.host, {'task_quantity': len(current_room.task_data), 'answer_quantity': len(current_room.task_data), 'time_per_task': {
-                                current_room.task_data[i]['id']: current_room.player_1_stats.times[i] for i in range(len(current_room.task_data)) if current_room.player_1_stats.correct[i]
-                            }})
-                            await analytics.change_values(current_room.other, {'task_quantity': len(current_room.task_data), 'answer_quantity': len(current_room.task_data), 'time_per_task': {
-                                current_room.task_data[i]['id']: current_room.player_2_stats.times[i] for i in range(len(current_room.task_data)) if current_room.player_2_stats.correct[i]
-                            }})
-
-                            battle_manager.remove_room(current_room)
+                            await end_game(session, current_room)
                             current_room = None
                         else:
                             await current_room.broadcast({
@@ -388,7 +411,8 @@ async def websocket_endpoint(websocket: WebSocket):
             # if current_room and user_id:
             #     await handle_player_leave(current_room, user_id)
             print(f"Игрок {user_id} отключился")
-            connected_websockets.remove(websocket)
+            if websocket in connected_websockets:
+                connected_websockets.remove(websocket)
             break
         except json.JSONDecodeError:
             await ws_error(websocket, 'Incorrect JSON data')

@@ -9,6 +9,8 @@ import database
 import utils
 from datetime import timedelta
 from fastapi.params import Depends
+
+
 router = APIRouter(prefix='/analytics')
 
 API_Key_Header = APIKeyHeader(name='Authorization', auto_error=True)
@@ -58,18 +60,18 @@ async def change_values(userid: int, count: dict):
 
 @router.get('/get_userid_by_datetime')
 async def get_userid_by_datetime(userid: int, start_date: datetime, final_date: datetime, token: str=Depends(API_Key_Header)) -> JSONResponse:
-            async with database.sessions.begin() as session:
-                user = await utils.token_to_user(session, token)
-                if user is None:
-                    raise HTTPException(403, {'error': 'Пользователь не существует'})
-                if user.role == 'administrator':
-                    request = await session.execute(select(database.Analytics).where(start_date <= database.Analytics.date).where(
-                            database.Analytics.date <= final_date).where(database.Analytics.id==userid))
-                else:
-                    request = await session.execute(
-                        select(database.Analytics).where(start_date <= database.Analytics.date).where(
-                            database.Analytics.date <= final_date).where(database.Analytics.id == user.id))
-                return utils.json_response(request.scalars().all())
+    async with database.sessions.begin() as session:
+        user = await utils.token_to_user(session, token)
+        if user is None:
+            raise HTTPException(403, {'error': 'Пользователь не существует'})
+        if user.role == 'administrator':
+            request = await session.execute(select(database.Analytics).where(start_date <= database.Analytics.date).where(
+                    database.Analytics.date <= final_date).where(database.Analytics.id==userid))
+        else:
+            request = await session.execute(
+                select(database.Analytics).where(start_date <= database.Analytics.date).where(
+                    database.Analytics.date <= final_date).where(database.Analytics.id == user.id))
+        return utils.json_response(request.scalars().all())
 
 
 async def add_battle_history(userid1, userid2, count):
