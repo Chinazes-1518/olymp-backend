@@ -17,7 +17,7 @@ services:
     environment:
       - POSTGRES_USER=root
       - POSTGRES_PASSWORD=saslo
-      - POSTGRES_DB=smartfridge
+      - POSTGRES_DB=olympservice
     volumes:
       - project-database:/var/lib/postgresql/data
 
