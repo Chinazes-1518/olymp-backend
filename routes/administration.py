@@ -11,22 +11,31 @@ import utils
 router = APIRouter(prefix='/admin')
 API_Key_Header = APIKeyHeader(name='Authorization', auto_error=True)
 
-@router.post('/statistics')
-async def get_statistics(token: str=Depends(API_Key_Header)) -> JSONResponse:
+
+@router.get('/statistics')
+async def get_statistics(token: str = Depends(API_Key_Header)) -> JSONResponse:
     async with database.sessions.begin() as session:
         user = await utils.token_to_user(session, token)
         if user is None:
             raise HTTPException(403, {'error': 'Пользователь не существует'})
         if user.role == 'administrator':
             request = await session.execute(select(database.BattleHistory))
-            history = request.scalars().all()
-            return utils.json_response({'history': history})
         else:
-            request = await session.execute(select(database.BattleHistory)
-                                            .where(
-                or_(database.BattleHistory.id1 == user.id, database.BattleHistory.id2 == user.id)))
-            history = request.scalars().all()
-            return utils.json_response({'history': history})
+            request = await session.execute(select(database.BattleHistory).where(
+                or_(database.BattleHistory.id1 == user.id, database.BattleHistory.id2 == user.id)
+            ))
+        history = request.scalars().all()
+        history_list = []
+        for battle in history:
+            battle_dict = {
+                'id': battle.id,
+                'id1': battle.id1,
+                'id2': battle.id2,
+                'date': battle.date.isoformat() if battle.date else None,
+                'data': battle.data or {}
+            }
+            history_list.append(battle_dict)
+        return utils.json_response({'history': history_list})
 
 
 class Task(BaseModel):
