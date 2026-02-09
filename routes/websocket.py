@@ -1,5 +1,7 @@
+from datetime import date
+from threading import current_thread
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
-from sqlalchemy import select, and_, cast, String, func, update
+from sqlalchemy import insert, select, and_, cast, String, func, update
 import asyncio
 import json
 import time
@@ -38,27 +40,28 @@ async def end_game(session, room: Room):
     t1 = [x for i, x in enumerate(room.player_1_stats.times) if room.player_1_stats.correct[i]]
     t2 = [x for i, x in enumerate(room.player_2_stats.times) if room.player_2_stats.correct[i]]
 
-    await room.broadcast({
-        'event': 'scores',
-        'total_points': room.total_points,
-        'winner': winner,
-        'player1': {
-            'name': f'{p1u.name} {p1u.surname[0]}.',
-            'points': room.player_1_stats.points,
-            'total_time': sum(room.player_1_stats.times),
-            'avg_time': sum(t1) / len(t1) if len(t1) > 0 else 0,
-            'score_before': score_1_now,
-            'score_after': score1new,
-        },
-        'player2': {
-            'name': f'{p2u.name} {p2u.surname[0]}.',
-            'points': room.player_2_stats.points,
-            'total_time': sum(room.player_2_stats.times),
-            'avg_time': sum(t2) / len(t2) if len(t2) > 0 else 0,
-            'score_before': score_2_now,
-            'score_after': score2new,
-        },
-    })
+    data = {'total_points': room.total_points,
+            'winner': winner,
+            'player1': {
+                'name': f'{p1u.name} {p1u.surname[0]}.',
+                'id': room.host,
+                'points': room.player_1_stats.points,
+                'total_time': sum(room.player_1_stats.times),
+                'avg_time': sum(t1) / len(t1) if len(t1) > 0 else 0,
+                'score_before': score_1_now,
+                'score_after': score1new,
+            },
+            'player2': {
+                'name': f'{p2u.name} {p2u.surname[0]}.',
+                'id': room.other,
+                'points': room.player_2_stats.points,
+                'total_time': sum(room.player_2_stats.times),
+                'avg_time': sum(t2) / len(t2) if len(t2) > 0 else 0,
+                'score_before': score_2_now,
+                'score_after': score2new,
+            }}
+
+    await room.broadcast({'event': 'scores'} | data)
 
     await session.execute(update(database.Users).where(database.Users.id == room.host).values(status=None, points=score1new))
     await session.execute(update(database.Users).where(database.Users.id == room.other).values(status=None, points=score2new))
@@ -69,6 +72,8 @@ async def end_game(session, room: Room):
     await analytics.change_values(room.other, {'task_quantity': sum(1 if x else 0 for x in room.player_2_stats.correct), 'answer_quantity': len(room.task_data), 'time_per_task': {
         room.task_data[i]['id']: room.player_2_stats.times[i] for i in range(len(room.task_data)) if room.player_2_stats.correct[i]
     }})
+
+    await session.execute(insert(database.BattleHistory).values(id1=room.host, id2=room.other, date=date.today(), data=data))
 
     battle_manager.remove_room(room)
 
@@ -142,7 +147,7 @@ async def websocket_endpoint(websocket: WebSocket):
                             # print(user_id, 'dbg 4')
                             current_room.other_ws = websocket
 
-                if not battle_manager.has_room(current_room):
+                if current_room is not None and not battle_manager.has_room(current_room):
                     print('current room is none!')
                     current_room = None
 

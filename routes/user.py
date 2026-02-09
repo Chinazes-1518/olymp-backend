@@ -4,7 +4,7 @@ from fastapi import APIRouter, HTTPException, Query, Header
 from fastapi.params import Depends
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
-from sqlalchemy import update
+from sqlalchemy import JSON, update, select
 import database
 import utils
 from fastapi.security import APIKeyHeader
@@ -64,3 +64,15 @@ async def set_training(info: TrainingModel, token: str = Depends(API_Key_Header)
             raise HTTPException(403, {'error': "Пользователь не найден"})
         print(info.training)
         await session.execute(update(database.Users).where(database.Users.id == user.id).values(current_training=info.training))
+
+
+@router.get('/top_players')
+async def top_players() -> JSONResponse:
+    async with database.sessions.begin() as session:
+        data = (await session.execute(select(database.Users))).scalars().all()
+        return utils.json_response([{
+            'id': u.id,
+            'name': f'{u.name} {u.surname[0]}.',
+            'points': u.points,
+            'place': i+1,
+        } for i, u in enumerate(sorted(data, key=lambda u: -u.points))])
