@@ -18,7 +18,7 @@ def json_response(data: dict) -> JSONResponse:
         'Access-Control-Allow-Origin': '*'})
 
 
-async def user_by_id(session, user_id: int):
+async def user_by_id(session, user_id: int) -> database.Users:
     user = await session.execute(select(database.Users).where(database.Users.id == user_id))
     return user.scalar_one_or_none()
 

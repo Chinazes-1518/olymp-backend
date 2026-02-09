@@ -120,6 +120,7 @@ async def get_rooms(token: str=Depends(API_Key_Header)):
             a = x.json()
             host_user = await user_by_id(session, x.host)
             a['host_name'] = f'{host_user.name} {host_user.surname[0]}.'
+            a['host_points'] = host_user.points
             if x.other:
                 other_user = await user_by_id(session, x.other)
                 a['other_name'] = f'{other_user.name} {other_user.surname[0]}.'

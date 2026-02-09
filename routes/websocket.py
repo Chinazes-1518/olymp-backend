@@ -180,7 +180,7 @@ async def websocket_endpoint(websocket: WebSocket):
                     current_room.level_start = level_start
                     current_room.level_end = level_end
 
-                    tasks_data = await utils.filter_tasks(session, level_start, level_end, subcategory, None, category, True, count, True)
+                    tasks_data = await utils.filter_tasks(session, level_start, level_end, subcategory, None, category, True, count, [], True)
 
                     current_room.task_data = tasks_data
                     print(current_room.task_data)
@@ -198,7 +198,8 @@ async def websocket_endpoint(websocket: WebSocket):
                         'host': user_id,
                         'id': room_id,
                         'name': data['name'],
-                        'host_name': f'{user.name} {user.surname[0]}.'
+                        'host_name': f'{user.name} {user.surname[0]}.',
+                        'host_points': user.points
                     })
                 elif cmd == 'join_room':
                     if not verify_params(data, ['room_id']):
