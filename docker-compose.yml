@@ -1,0 +1,25 @@
+version: "3"
+
+services:
+  project-backend:
+    build: "."
+    restart: "always"
+
+    ports:
+      - 8000:8000
+    depends_on:
+      - project-database
+
+  project-database:
+    image: "postgres:bullseye"
+    restart: "always"
+
+    environment:
+      - POSTGRES_USER=root
+      - POSTGRES_PASSWORD=saslo
+      - POSTGRES_DB=smartfridge
+    volumes:
+      - project-database:/var/lib/postgresql/data
+
+volumes:
+  project-database:
