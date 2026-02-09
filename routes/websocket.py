@@ -42,6 +42,16 @@ async def end_game(session, room: Room):
 
     data = {'total_points': room.total_points,
             'winner': winner,
+            'result1': room.player_1_stats.points,
+            'result2': room.player_2_stats.points,
+            'rating_change1': score1new - score_1_now,
+            'rating_change2': score2new - score_2_now,
+            'rating_before1': score_1_now,
+            'rating_after1': score1new,
+            'rating_before2': score_2_now,
+            'rating_after2': score2new,
+            'duration_minutes': room.time_limit,
+            'tasks_count': len(room.task_data),
             'player1': {
                 'name': f'{p1u.name} {p1u.surname[0]}.',
                 'id': room.host,
