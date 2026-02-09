@@ -48,7 +48,7 @@ async def send_to_frontend_training(condition: Optional[str] = None,
             if 'time_per_task' in el.data:
                 solved |= set(map(int, el.data['time_per_task'].keys()))
         # print(solved)
-        tasks_data = await utils.filter_tasks(session, level_start or 0, level_end or 10, subcategory, condition, category, random_tasks, count or 0, list(solved))
+        tasks_data = await utils.filter_tasks(session, level_start or 0, level_end or 10, subcategory, condition, category, random_tasks, count or 0, list(solved), True)
         return utils.json_response({'tasks': tasks_data})
 
 

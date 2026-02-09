@@ -180,7 +180,7 @@ async def websocket_endpoint(websocket: WebSocket):
                     current_room.level_start = level_start
                     current_room.level_end = level_end
 
-                    tasks_data = await utils.filter_tasks(session, level_start, level_end, subcategory, None, category, True, count)
+                    tasks_data = await utils.filter_tasks(session, level_start, level_end, subcategory, None, category, True, count, True)
 
                     current_room.task_data = tasks_data
                     print(current_room.task_data)

@@ -125,16 +125,3 @@ async def get_rooms(token: str=Depends(API_Key_Header)):
                 a['other_name'] = f'{other_user.name} {other_user.surname[0]}.'
             res.append(a)
         return json_response(res)
-
-
-@router.get('/room')
-async def get_room(id: int,
-        token: str=Depends(API_Key_Header)):
-    async with database.sessions.begin() as session:
-        if (await token_to_user(session, token)) is None:
-            raise HTTPException(403, {"error": "Токен недействителен"})
-        r = battle_manager.get_room(id)
-        if r is None:
-            raise HTTPException(403, {"error": "Комната не найдена"})
-        else:
-            return json_response(r.json())

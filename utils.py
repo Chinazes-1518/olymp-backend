@@ -89,7 +89,7 @@ async def gigachat_check_training_answer(user_answer, user_solution, task_condit
 
 
 async def filter_tasks(session: s_aio.AsyncSession, level_start: int, level_end: int, subcategory: str |
-                       None, condition: str | None, category: int | None, random_tasks: bool, count: int, exclude: list[int] = []) -> list[dict]:
+                       None, condition: str | None, category: int | None, random_tasks: bool, count: int, exclude: list[int] = [], remove_prove: bool = False) -> list[dict]:
     tasks = select(database.Tasks)
     tasks = tasks.where(and_(
         database.Tasks.level >= level_start,
@@ -112,6 +112,8 @@ async def filter_tasks(session: s_aio.AsyncSession, level_start: int, level_end:
         tasks = tasks.limit(count)
     if len(exclude) > 0:
         tasks = tasks.where(~database.Tasks.id.in_(exclude))
+    if remove_prove:
+        tasks = tasks.where(database.Tasks.answer != '')
 
     tasks2 = (await session.execute(tasks)).scalars().all()
     tasks_data = [{
