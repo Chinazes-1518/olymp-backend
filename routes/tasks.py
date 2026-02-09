@@ -4,6 +4,7 @@ from fastapi.params import Depends
 from fastapi.responses import JSONResponse
 from sqlalchemy import select, and_, String, cast, Integer, func
 from typing import Annotated, Optional, Union, List
+from pydantic import BaseModel
 import database
 import utils
 from sqlalchemy.dialects.postgresql import ARRAY
@@ -51,11 +52,13 @@ async def send_to_frontend_training(condition: Optional[str] = None,
         tasks_data = await utils.filter_tasks(session, level_start or 0, level_end or 10, subcategory, condition, category, random_tasks, count or 0, list(solved), True)
         return utils.json_response({'tasks': tasks_data})
 
+class Model(BaseModel):
+    ids: str
 
-@router.get('/tasks_by_id')
-async def get_tasks_by_id(ids: Annotated[str, Query]):
+@router.post('/tasks_by_id')
+async def get_tasks_by_id(data: Model):
     async with database.sessions.begin() as session:
-        ids_int = list(map(int, ids.split(',')))
+        ids_int = list(map(int, data.ids.split(',')))
         tasks = (await session.execute(select(database.Tasks).where(database.Tasks.id.in_(ids_int)))).scalars().all()
         r = []
         for x in ids_int:

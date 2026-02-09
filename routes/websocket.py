@@ -372,22 +372,6 @@ async def websocket_endpoint(websocket: WebSocket):
                                     'answer_type': current_room.task_data[current_room.current_task]['answer_type'],
                                 }
                             })
-                elif cmd == 'send_to_chat':
-                    if not verify_params(data, ['message']):
-                        await ws_error(websocket, 'No message specified')
-                        continue
-
-                    room = battle_manager.get_room_by_user(user_id)
-                    if room is None:
-                        await ws_error(websocket, 'Not in room')
-                        continue
-
-                    await room.broadcast({
-                        'event': 'chat_message',
-                        'sender': f'{user.name} {user.surname}',
-                        'message': data['message'],
-                        'time': time.strftime("%H:%M:%S")
-                    })
                 elif cmd == 'get_game_state':
                     if current_room is None:
                         await ws_error(websocket, 'Not in a room')
