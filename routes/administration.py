@@ -70,7 +70,7 @@ async def get_all_users(token: str=Depends(API_Key_Header)) -> JSONResponse:
                     'name': x.name,
                     'surname': x.surname,
                     'status': x.status
-                } for x in data
+                } for x in sorted(data, key=lambda i: i.id)
             ])
         else:
             raise HTTPException(403, {'error': 'нужны права администратора!'})
