@@ -1,7 +1,8 @@
+import json
 from fastapi import APIRouter, HTTPException, Header, Query
 from fastapi.responses import JSONResponse
 from sqlalchemy import select, insert, or_, and_, update
-from typing import Annotated
+from typing import Annotated, Any
 from pydantic import BaseModel
 from fastapi.security import APIKeyHeader
 from fastapi.params import Depends
@@ -38,17 +39,6 @@ async def get_statistics(token: str = Depends(API_Key_Header)) -> JSONResponse:
         return utils.json_response({'history': history_list})
 
 
-class Task(BaseModel):
-    level: int
-    category: str
-    subcategory: list[str]
-    condition: str
-    solution: str
-    answer: str
-    source: str
-    answer_type: str
-
-
 @router.post('/change_role')
 async def change_role(role: str, user_id: int, token: str=Depends(API_Key_Header)) -> JSONResponse:
     async with database.sessions.begin() as session:
@@ -56,7 +46,7 @@ async def change_role(role: str, user_id: int, token: str=Depends(API_Key_Header
         if user is None:
             raise HTTPException(403, {'error': 'Пользователь не существует'})
         if user.role == 'administrator':
-            await session.execute(update(database.Users).where(database.Users.id == user_id).values(role=role))
+            await session.execute(update(database.Users).where(database.Users.id == user_id).values(role=role, blocked=False))
         else:
             raise HTTPException(403, {'error': 'нужны права администратора!'})
 
@@ -84,26 +74,36 @@ async def get_all_users(token: str=Depends(API_Key_Header)) -> JSONResponse:
             raise HTTPException(403, {'error': 'нужны права администратора!'})
 
 
+class GoofyModel(BaseModel):
+    data: Any
+
+
 @router.post('/import_task')
-async def import_task(data: Task, token: str=Depends(API_Key_Header)) -> JSONResponse:
+async def import_task(data: GoofyModel, token: str=Depends(API_Key_Header)) -> JSONResponse:
     async with database.sessions.begin() as session:
         user = await utils.token_to_user(session, token)
         if user is None:
             raise HTTPException(403, {'error': 'Пользователь не существует'})
         if user.role == 'administrator':
-            await import_tasks_to_db([data])
+            try:
+                await import_tasks_to_db([data.data])
+            except Exception as e:
+                raise HTTPException(403, {'error': 'Ошибка: ' + str(e)})
         else:
             raise HTTPException(403, {'error': 'Импортировать задачи может только администратор'})
 
 
 @router.post('/import_tasks')
-async def import_tasks(data: list[Task], token: str=Depends(API_Key_Header)) -> JSONResponse:
+async def import_tasks(data: GoofyModel, token: str=Depends(API_Key_Header)) -> JSONResponse:
     async with database.sessions.begin() as session:
         user = await utils.token_to_user(session, token)
         if user is None:
             raise HTTPException(403, {'error': "Неверный токен"})
         if user.role == 'administrator':
-            await import_tasks_to_db(data)
+            try:
+                await import_tasks_to_db(data.data)
+            except Exception as e:
+                raise HTTPException(403, {'error': 'Ошибка: ' + str(e)})
         else:
             raise HTTPException(403, {'error': 'Импортировать задачи может только администратор'})
 
@@ -135,6 +135,10 @@ async def export_tasks(token: str=Depends(API_Key_Header)) -> JSONResponse:
 async def import_tasks_to_db(data_list):
     async with database.sessions.begin() as session:
         for data in data_list:
+            if not any(x in data for x in [
+                'category', 'subcategory', 'level', 'condition', 'solution', 'answer', 'source', 'answer_type'
+            ]):
+                continue
             cat = (await session.execute(select(database.Categories).where(database.Categories.name == data['category']))).scalar_one_or_none()
             if cat is None:
                 cat_id = (await session.execute(insert(database.Categories).values(name=data['category']))).inserted_primary_key[0]
@@ -167,9 +171,11 @@ async def block_user(id: Annotated[int, Query()], token: str = Depends(API_Key_H
         req = request.scalar_one_or_none()
         if req.blocked:
             raise HTTPException(403,  {'error': 'Пользователь уже заблокирован'})
+        if req.role == 'administrator':
+            raise HTTPException(403,  {'error': 'Администраторов нельзя блокировать'})
         if user.role == 'administrator':
             await session.execute(
-                update(database.Users).where(and_(database.Users.id == id, database.Users.role != 'administrator')).values(blocked=not req.blocked))
+                update(database.Users).where(and_(database.Users.id == id)).values(blocked=True))
 
 
 
@@ -183,9 +189,9 @@ async def unblock_user(id: Annotated[int, Query()], token: str = Depends(API_Key
         req = request.scalar_one_or_none()
         if not req.blocked:
             raise HTTPException(403,  {'error': 'Пользователь не заблокирован'})
+        if req.role == 'administrator':
+            raise HTTPException(403,  {'error': 'Администраторов нельзя блокировать'})
         if user.role == 'administrator':
             await session.execute(
-                update(database.Users).where(
-                    and_(database.Users.id == id, database.Users.role != 'administrator')).values(
-                    blocked=not req.blocked))
+                update(database.Users).where(and_(database.Users.id == id)).values(blocked=False))
 
