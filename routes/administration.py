@@ -78,7 +78,8 @@ async def get_all_users(token: str=Depends(API_Key_Header)) -> JSONResponse:
                     'points': x.points,
                     'name': x.name,
                     'surname': x.surname,
-                    'status': x.status
+                    'status': x.status,
+                    'blocked': x.blocked
                 } for x in sorted(data, key=lambda i: i.id)
             ])
         else:
