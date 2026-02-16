@@ -164,7 +164,8 @@ async def block_user(id: Annotated[int, Query()], token: str = Depends(API_Key_H
         if user is None:
             raise HTTPException(403, {'error': 'Пользователь не существует'})
         request = await session.execute(select(database.Users).where(database.Users.id == id))
-        if request.blocked:
+        req = request.scalar_one_or_none()
+        if req.blocked:
             raise HTTPException(403,  {'error': 'Пользователь уже заблокирован!'})
         if user.role == 'administrator':
             await session.execute(
@@ -179,6 +180,7 @@ async def unblock_user(id: Annotated[int, Query()], token: str = Depends(API_Key
         if user is None:
             raise HTTPException(403, {'error': 'Пользователь не существует'})
         request = await session.execute(select(database.Users).where(database.Users.id == id))
+        req = request.scalar_one_or_none()
         if not request.blocked:
             raise HTTPException(403,  {'error': 'Пользователь не заблокирован, разблокировка невозможна!'})
         if user.role == 'administrator':
