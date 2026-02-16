@@ -165,7 +165,7 @@ async def block_user(id: Annotated[int, Query()], token: str = Depends(API_Key_H
             raise HTTPException(403, {'error': 'Пользователь не существует'})
         if user.role == 'administrator':
             await session.execute(
-                update(database.Users).where(database.Users.id == id).values(blocked=True))
+                update(database.Users).where(and_(database.Users.id == id, database.Users.role != 'administrator').values(blocked=True)))
 
 
 @router.post('/unblock_user')
@@ -176,6 +176,6 @@ async def unblock_user(id: Annotated[int, Query()], token: str = Depends(API_Key
             raise HTTPException(403, {'error': 'Пользователь не существует'})
         if user.role == 'administrator':
             await session.execute(
-                update(database.Users).where(database.Users.id == id).values(blocked=False))
+                update(database.Users).where(and_(database.Users.id == id, database.Users.role != 'administrator').values(blocked=False)))
 
 
