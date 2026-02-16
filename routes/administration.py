@@ -122,7 +122,7 @@ async def export_tasks(token: str=Depends(API_Key_Header)) -> JSONResponse:
             tasks_data = [{"id": item.id,
                            'level': item.level,
                            'category': item.category,
-                           'subcategory': ';'.join(item.subcategory),
+                           'subcategory': ';'.join(map(str, item.subcategory)),
                            'condition': item.condition,
                            'solution': item.solution,
                            'answer': item.answer,
