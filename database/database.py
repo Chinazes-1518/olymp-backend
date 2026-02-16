@@ -20,6 +20,7 @@ class Users(MainBase):
     surname: Mapped[str]
     status: Mapped[Optional[str]] = mapped_column(String, default=None)  # training / battle / None
     current_training: Mapped[Optional[dict]] = mapped_column(JSON, default=None)
+    blocked: Mapped[bool]
 
 
 class Categories(MainBase):

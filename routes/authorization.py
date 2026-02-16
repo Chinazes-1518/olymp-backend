@@ -70,6 +70,10 @@ async def login(login: Annotated[str, Query()],
               raise HTTPException(422, {'error': 'Длина пароля должна быть больше 3 символов'})
           if hash_password(password.strip()) != user.password_hash:
               raise HTTPException(403, {'error': 'Неверный логин или пароль'})
+          if user.blocked:
+              raise HTTPException(403, {
+                  'error': 'Пользователь заблокирован!'
+              })
           return utils.json_response({'token': user.token, 'id': user.id, 'name':user.name, 'surname': user.surname})
 
 
@@ -79,6 +83,8 @@ async def verify_token(token: str=Depends(API_Key_Header)) -> JSONResponse:
         user = await utils.token_to_user(session, token)
         if user is None:
             raise HTTPException(403, {"error": "Токен не существует"})
+        if user.blocked:
+            raise HTTPException(403, {'error': 'Пользователь заблокирован!'})
         return utils.json_response({'token': user.token, 'id': user.id, 'name': user.name, 'surname': user.surname, 'status': user.status, 'training': user.current_training, 'login': user.login, 'points': user.points, 'role': user.role})
 
 

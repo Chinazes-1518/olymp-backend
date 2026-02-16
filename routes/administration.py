@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Header
+from fastapi import APIRouter, HTTPException, Header, Query
 from fastapi.responses import JSONResponse
 from sqlalchemy import select, insert, or_, and_, update
 from typing import Annotated
@@ -155,3 +155,26 @@ async def import_tasks_to_db(data):
             return
         await session.execute(insert(database.Tasks), data)
         await session.commit()
+
+@router.post('/block_user')
+async def block_user(id: Annotated[int, Query()], token: str = Depends(API_Key_Header)):
+    async with database.sessions.begin() as session:
+        user = await utils.token_to_user(session, token)
+        if user is None:
+            raise HTTPException(403, {'error': 'Пользователь не существует'})
+        if user.role == 'administrator':
+            await session.execute(
+                update(database.Users).where(database.Users.id == id).values(blocked=True))
+
+
+@router.post('/unblock_user')
+async def unblock_user(id: Annotated[int, Query()], token: str = Depends(API_Key_Header)):
+    async with database.sessions.begin() as session:
+        user = await utils.token_to_user(session, token)
+        if user is None:
+            raise HTTPException(403, {'error': 'Пользователь не существует'})
+        if user.role == 'administrator':
+            await session.execute(
+                update(database.Users).where(database.Users.id == id).values(blocked=False))
+
+
