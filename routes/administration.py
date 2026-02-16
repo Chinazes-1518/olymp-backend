@@ -169,7 +169,7 @@ async def block_user(id: Annotated[int, Query()], token: str = Depends(API_Key_H
             raise HTTPException(403,  {'error': 'Пользователь уже заблокирован!'})
         if user.role == 'administrator':
             await session.execute(
-                update(database.Users).where(and_(database.Users.id == id, database.Users.role != 'administrator').values(blocked=not req.blocked)))
+                update(database.Users).where(and_(database.Users.id == id, database.Users.role != 'administrator')).values(blocked=not req.blocked))
 
 
 
@@ -185,6 +185,7 @@ async def unblock_user(id: Annotated[int, Query()], token: str = Depends(API_Key
             raise HTTPException(403,  {'error': 'Пользователь не заблокирован, разблокировка невозможна!'})
         if user.role == 'administrator':
             await session.execute(
-                update(database.Users).where(and_(database.Users.id == id, database.Users.role != 'administrator').values(blocked=not req.blocked)))
-
+                update(database.Users).where(
+                    and_(database.Users.id == id, database.Users.role != 'administrator')).values(
+                    blocked=not req.blocked))
 
