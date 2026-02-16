@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Mapped, mapped_column, DeclarativeBase
-from sqlalchemy import ForeignKey, Integer, String, JSON, DateTime, Column, ARRAY
+from sqlalchemy import ForeignKey, Integer, String, JSON, DateTime, Column, ARRAY, Boolean
 from typing import Optional
 from datetime import datetime
 
@@ -20,7 +20,7 @@ class Users(MainBase):
     surname: Mapped[str]
     status: Mapped[Optional[str]] = mapped_column(String, default=None)  # training / battle / None
     current_training: Mapped[Optional[dict]] = mapped_column(JSON, default=None)
-    blocked: Mapped[bool]
+    blocked: Mapped[bool] = mapped_column(Boolean, default=False)
 
 
 class Categories(MainBase):
