@@ -39,9 +39,7 @@ async def get_statistics(token: str = Depends(API_Key_Header)) -> JSONResponse:
 
 
 class Task(BaseModel):
-    Userid: int
     level: int
-    points: int
     category: str
     subcategory: list[str]
     condition: str
@@ -134,28 +132,30 @@ async def export_tasks(token: str=Depends(API_Key_Header)) -> JSONResponse:
             raise HTTPException(403, {'error': ' Экспортировать задачи может только администратор'})
 
 
-async def import_tasks_to_db(data):
+async def import_tasks_to_db(data_list):
     async with database.sessions.begin() as session:
-        cat = (await session.execute(select(database.Categories).where(database.Categories.name == data['category']))).scalar_one_or_none()
-        if cat is None:
-            cat_id = (await session.execute(insert(database.Categories).values(name=data['category']))).inserted_primary_key[0]
-        else:
-            cat_id = cat.id
-        subcat_id = []
-        for c in data['subcategory']:
-            cat = (await session.execute(select(database.SubCategories).where(and_(database.SubCategories.name == c, database.SubCategories.category_id == cat_id)))).scalar_one_or_none()
+        for data in data_list:
+            cat = (await session.execute(select(database.Categories).where(database.Categories.name == data['category']))).scalar_one_or_none()
             if cat is None:
-                subcat_id.append((await session.execute(insert(database.SubCategories).values(name=c, category_id=cat_id))).inserted_primary_key[0])
+                cat_id = (await session.execute(insert(database.Categories).values(name=data['category']))).inserted_primary_key[0]
             else:
-                subcat_id.append(cat.id)
-        data['category'] = cat_id
-        data['subcategory'] = subcat_id
-        if (await session.execute(select(database.Tasks).where(database.Tasks.id == int(data['id'])))).scalar_one_or_none() != None:
-            print(f'task {data["id"]} already exists')
+                cat_id = cat.id
+            subcat_id = []
+            for c in data['subcategory']:
+                cat = (await session.execute(select(database.SubCategories).where(and_(database.SubCategories.name == c, database.SubCategories.category_id == cat_id)))).scalar_one_or_none()
+                if cat is None:
+                    subcat_id.append((await session.execute(insert(database.SubCategories).values(name=c, category_id=cat_id))).inserted_primary_key[0])
+                else:
+                    subcat_id.append(cat.id)
+            data['category'] = cat_id
+            data['subcategory'] = subcat_id
+            if 'id' in data:
+                if (await session.execute(select(database.Tasks).where(database.Tasks.id == int(data['id'])))).scalar_one_or_none() != None:
+                    print(f'task {data["id"]} already exists')
+                    await session.commit()
+                    return
+            await session.execute(insert(database.Tasks), data)
             await session.commit()
-            return
-        await session.execute(insert(database.Tasks), data)
-        await session.commit()
 
 @router.post('/block_user')
 async def block_user(id: Annotated[int, Query()], token: str = Depends(API_Key_Header)):

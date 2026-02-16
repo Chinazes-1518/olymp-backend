@@ -25,7 +25,7 @@ async def lifespan(app: FastAPI):
         with open(f'misc/{name}.json', encoding='utf8') as f:
             data = json.load(f)
         for record in data:
-            await routes.administration.import_tasks_to_db({
+            await routes.administration.import_tasks_to_db([{
                 'id': record['id'],
                 'level': int(record['difficulty']),
                 'category': name,
@@ -35,7 +35,7 @@ async def lifespan(app: FastAPI):
                 'answer': record['answer'],
                 'source': 'problems.ru',
                 'answer_type': 'string'
-            })
+            }])
 
     yield
 
